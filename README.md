@@ -10,7 +10,7 @@ Code 2 generate kymographs for biochemical properties (membrane  marker, ActA, a
 
 Code 3 applies correlation analysis and principal component analysis to study symmetry breaking. 
 
-Additional details regarding the approach can be found in the Supplementary Information section of the paper. 
+Additional details regarding the approaches used can be found in the Supplementary Information section of the paper. 
 
 Please read the citation details below if you would like to use a part of this repository in your research.
 
