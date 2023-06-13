@@ -7,7 +7,7 @@ set(0,'DefaultAxesTitleFontWeight','normal');
 set(0,'DefaultAxesFontName','Avenir')
 
 %% this data table defines the key settings
-Sguv = readtable('globalguv.csv');
+Sguv = readtable('guv_settings.csv');
 runtype = 2; % 1: run just testing few frames
             % 2: run full kymograph analysis on 1 or more GUVs
             % 3: find and load previous data and just adjust plots
