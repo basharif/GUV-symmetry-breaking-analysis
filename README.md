@@ -8,7 +8,7 @@ Code 1 generates masks to segment GUVs.
 
 Code 2 generate kymographs for biochemical properties (membrane  marker, ActA, and actin signal) and physical properties (curvature and eccentricity) of GUVs. The "guv_settings.csv" file contains parameters for each guv that need to be adjusted (naming, number of frames to use, time of rapamycin addition, inner-outer mask size parameter, and center angle for kymographs).
 
-Code 3 applies correlation analysis and principal component analysis to study symmetry breaking. 
+Code 3 applies correlation analysis and principal component analysis to study symmetry breaking. It also contains code for analysis of radial actin polymerization rate for locally stimulated GUVs. 
 
 Additional details regarding the approaches used can be found in the Supplementary Information section of the paper. 
 
