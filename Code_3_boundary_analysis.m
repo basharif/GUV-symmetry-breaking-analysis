@@ -1,9 +1,13 @@
 %% initialize
 clc; clearvars; close all;
 
-set(0,'DefaultAxesFontName','Avenir')
+set(0,'defaultfigureposition',[500 500 800 600]') % x, y , w , h
+set(0,'defaultAxesFontSize',20)
+set(0,'defaultAxesFontName','Arial')
+set(0,'defaultfigurecolor',[1 1 1])
+set(0,'defaultFigureRenderer', 'painters');
 
-newsavefigs = 0;
+newsavefigs = 1;
 
 % folder name should end with '/'
 % name of subfolder in output folder that contains the data of interest
@@ -20,10 +24,12 @@ newsavefigs = 0;
 % datatype = 'elifeg2_NOlumen_60plperp_SAVEALL_v2022-12-27/';
 
 % use for local guvs bc boundary error prone, so 100plperp used
-% local guv data uses boundary:lumen ratio
-datatype = 'NOmnorm_100plperp_SAVEALL_v2022-11-27/';
+% for PCA analysis use boundary:lumen ratio but not membran marker normalized "NOmnorm"
+% for other boundary analysis use only boundary signal "NOLumen
+%datatype = 'NOmnorm_100plperp_SAVEALL_v2022-11-27/';
+datatype = 'NOlumen_100plperp_SAVEALL_v2023-01-07/';
 
-% list of ALL folder
+% list of kymographs data folder for each GUV
 %S = dir('elife*testout'); % list of Global output folders
 %S = dir('elifeg2*testout'); % list of Global output folders
 %S = dir('G*output'); % list of Global output folders
@@ -32,7 +38,7 @@ S = dir('L*output'); % list of local output folders
 %S = dir(strcat('G*output/',datatype,'*data.mat')); 
 
 % folder name should end with '/'
-newoutputfolder = strcat('analysis19_test_',datatype(1:end-1),'_75pthr_v1/');
+newoutputfolder = strcat('analysis19_LOC_ActinRate_',datatype(1:end-1),'_75pthr_v1/');
 %newoutputfolder = 'analysis16_elife_NOmnorm_60plperp_v2022-11-07_vary_75pthr_v1/';
 
 %%%%%% CHECK IF NAME MATCHES INPUTS !!!!!!!!!!!!!!
@@ -45,12 +51,12 @@ newoutputfolder = strcat('analysis19_test_',datatype(1:end-1),'_75pthr_v1/');
 
 %Gidx_analysis = [1:18]'; % for correlations
 %Gidx_analysis = [2:18]'; % FOR PCA and signal corr
-Gidx_analysis = [1:3]; % FOR local and eLife analysis
+%Gidx_analysis = [1:3]; % FOR local and eLife analysis
 
 
-%Gidx_analysis = [2:18]';
+%Gidx_analysis = [1:18]';
 %Gidx_analysis = [2,4,11:18]';
-%Gidx_analysis = [1:3]';
+Gidx_analysis = [3]';
 %Gidx_analysis = [3,5,6]';
 
 outputname = newoutputfolder(9:end-1);
@@ -80,8 +86,10 @@ show_spatialcorr = 0;
 show_alignment = 0; % alignment of mean-norm ActA and actin at a single frame pre/post rapa
 show_entropy = 0;
 show_variance = 0;
-show_pca = 1;
+show_pca = 0;
 show_eccent_actin_corr = 0;
+
+show_actinrate = 1; % rate of actin growth radially in Local rapamycin expts
 
 
 
@@ -276,6 +284,139 @@ pstatalign = v2struct(dNframes,dTrapa,dguvnames,pranges,maxf,maxf1,maxt,maxd,tic
 
 %lcmframes = lcms(dNframes)
 %---------------
+
+%% ACTIN RATE
+if show_actinrate
+
+do_smoothAR = 1;
+mfilt_AR = 10;
+
+for i = 1:n_analysis
+    
+    Tmpactin00 = dKBactin{i};
+    
+    
+    I = mavgsmoothboundary(mfilt_AR,Tmpactin00);
+    I = imgaussfilt(I,1);
+    Tmpactin0 = medfilt2(I,[1 1]);
+
+    figAR(1) = figure(1); imagesc(Tmpactin0); 
+    axis fill; 
+   title(strcat('L0',num2str(Gidx_analysis)));
+   xlabel('Frames (15 sec)');
+   ylabel('Angular bins (deg)')    
+    drawnow;
+
+    BWactin0 = imbinarize(rescale(Tmpactin0),0.1);
+    figure(2); imagesc(BWactin0); colormap gray; axis fill; drawnow;
+
+    % 10 iterations
+    BWactin1 = activecontour(Tmpactin0,BWactin0,10,'Chan-Vese','SmoothFactor',1,'ContractionBias',0);
+
+    % Get rid of small holes (noticeable at initial actin polymerization)
+    BWactin2 = imfill(BWactin1, 'holes');
+    figure(3); imagesc(BWactin2); colormap gray; axis fill; drawnow;
+
+    [bwb_actin0,lab_actin0,n_actin0,~] = bwboundaries(BWactin2,'noholes');
+    actinpatches = regionprops(lab_actin0, 'area');
+	% Get all the areas
+	allActinAreas = [actinpatches.Area];
+    [sortedAreas, sortIndexes] = sort(allActinAreas, 'descend');
+    % find largest actin patch
+    bwb_big = ismember(lab_actin0, sortIndexes(1)); % integer-labeled image
+
+    bwb_tmp = bwb_big > 0; % convert to binary from integer-label of largest actin patch
+    bwb_bdy = bwb_actin0{sortIndexes(1)}; % boundary points of largest actin patch
+
+    % savitzky-golay smoothing of boundary
+    windowWidth = 2*(20)+1; % must be odd; 
+    polynomialOrder = 2; % keep this as 2 for quadratic smoothing of boundary
+    bdy_sg = sgsmoothboundary(bwb_tmp,bwb_bdy,windowWidth,polynomialOrder);
+
+
+    figAR(2) = figure(4); imagesc(bwb_tmp); hold on;
+    %plot(bwb_bdy(:,2),bwb_bdy(:,1),'g*','LineWidth',2)
+    plot(bdy_sg(:,2),bdy_sg(:,1),'b*','LineWidth',1)
+    % title('Original (green), Savitzky-Golay smoothed (blue)',...
+    %     'FontSize',10);
+    % f50.Position(3:4) = [500 500];
+   colormap gray; 
+   title(strcat('L0',num2str(Gidx_analysis)));
+   xlabel('Frames (15 sec)');
+   ylabel('Angular bins (deg)')
+    
+    % find series of points to fit to based on rows(y values) and columns (x values)
+    xrA = [39,74]; % column range
+    yrA = [39,201]; % row range
+    p0 = bdy_sg(:,2)>xrA(1) & bdy_sg(:,2)<xrA(2) ...
+        & bdy_sg(:,1)>yrA(1) & bdy_sg(:,1)<yrA(2);
+
+    x = bdy_sg(p0,2);
+    y = bdy_sg(p0,1);
+    % Do the fit to a line:
+    coefficients = polyfit(x,-y,1);
+    slope = coefficients(1);
+    intercept = coefficients(2);
+    message = sprintf('|Slope| = %.3f deg/frame = %.3f deg/min.',abs(slope), abs(slope*4));
+
+    % Make a fitted line
+    x1 = min(x);
+    x2 = max(x);
+    y1 = min(y);
+    y2 = max(y);
+    text(x1,y1,message,'Color','r','FontSize',16)
+    xFit = x1:x2;
+    yFit = polyval(coefficients, xFit);
+    plot(xFit, -yFit, 'r-', 'LineWidth', 2);
+
+
+    % find series of points to fit to based on rows(y values) and columns (x values)
+    xrB = [39,62]; %xrA; % column range
+    yrB = [250,349]; % row range
+    p0 = bdy_sg(:,2)>xrB(1) & bdy_sg(:,2)<xrB(2) ...
+        & bdy_sg(:,1)>yrB(1) & bdy_sg(:,1)<yrB(2);
+
+    x = bdy_sg(p0,2);
+    y = bdy_sg(p0,1);
+    % Do the fit to a line:
+    coefficients = polyfit(x,-y,1);
+    slope = coefficients(1);
+    intercept = coefficients(2);
+    message = sprintf('|Slope| = %.3f deg/frame = %.3f deg/min.',abs(slope), abs(slope*4));
+
+    % Make a fitted line
+    x1 = min(x);
+    x2 = max(x);
+    y1 = min(y);
+    y2 = max(y);
+    text(x1,y2,message,'Color','r','FontSize',16)
+    xFit = x1:x2;
+    yFit = polyval(coefficients, xFit);
+
+    plot(xFit, -yFit, 'r-', 'LineWidth', 2);
+    axis fill; hold off; drawnow;
+
+
+
+    % BW_actinpatch = poly2mask(bdy_sg(:,2),bdy_sg(:,1),size(bwb_tmp,1),size(bwb_tmp,2));
+    % figure(5); imshow(BW_actinpatch); axis fill; drawnow;
+    % Actinedge = edge(BW_actinpatch);    
+    % figure(6); imshow(Actinedge); axis fill; drawnow;
+
+    if newsavefigs
+        saveas(figAR(1),strcat(newoutputfolder,'actin_rate_',...
+            tstamp_analysis,'initkymo_L0',num2str(Gidx_analysis),'.svg'));
+        saveas(figAR(2),strcat(newoutputfolder,'actin_rate_',...
+            tstamp_analysis,'actinrate_L0',num2str(Gidx_analysis),'.svg'));
+
+        savefig(figAR,strcat(newoutputfolder,'actin_rate_',...
+            tstamp_analysis,'_L0',num2str(Gidx_analysis),'.fig'));
+    end
+
+end
+
+end
+
 %% ECCENTRICITY and Actin
 afs = 14; 
 if show_eccent_actin_corr
@@ -425,7 +566,6 @@ end
 if show_pca == 1
 
 do_PCAonfullkymo = 1; %
-do_localguv = 1; 
 do_norm_pca = 3; % 0: no normalization- USE THIS IF BINARIZED data especially
                 % 1: mean norm; 
                 % 2: unit norm.
@@ -433,33 +573,24 @@ do_norm_pca = 3; % 0: no normalization- USE THIS IF BINARIZED data especially
 do_binarized = 0; % binarize the kymograph
 do_spectimes = 1; % 0: use frames 1 : end-3
                 % 1: use select frames
-do_align_style = 2; 
-% reset to 0 if do_localguv
-    % 0: no second round of alignment
-    % 1: center the max at each frame
-    % 2: center the max at frame trapa + halfway to the end
+do_align_style = 2; % 0: no second round of alignment
+                    % 1: center the max at each frame
+                    % 2: center the max at frame trapa + halfway to the end
 use_actin_ref = 1; % use actin as a reference kymo for alignment
 do_std_clims = 1; % use standardized coloraxis limits 
 do_smooth = 1; % moving average smoothing
 do_meanbin = 1;
 sfilt = 10; 
 
-%which_qty = "actin"; 
-which_qty = "curvature";
+which_qty = "actin"; 
+%which_qty = "curvature";
 %which_qty = "ActA";
-
-%% FIXED pca settings based on local/global or specific kymos
-if do_localguv
-    do_align_style = 0;
-end
 
 if strcmp(which_qty,"actin")
     use_actin_ref = 0; 
 end
-%%
 
-pcadim = 3; % 6 for global
-pc_clims = round(pcadim/2);
+pcadim = 6; % 6 for global
 
 %% alignment for pca
 
@@ -557,15 +688,11 @@ for i = 1:n_analysis
         %times{i} = [(dTrapa(i)+10):(dTrapa(i)+19)]'; 
         %times{i} = [(dTrapa(i)-5):(dTrapa(i)+50)]'; 
 
+        % for global
+        times{i} = [(dTrapa(i)+1):(dTrapa(i)+50)]'; 
 
-    
-        if do_localguv
-            % for local
-            times{i} = [(dTrapa(i)+1):(dTrapa(i)+250)]'; 
-        else
-            %for global
-            times{i} = [(dTrapa(i)+1):(dTrapa(i)+50)]'; 
-        end
+        % for local
+        %times{i} = [(dTrapa(i)+1):(dTrapa(i)+250)]'; 
 
     else % use all frames for pca
         times{i} = [1:(dNframes(i)-3)]';
@@ -656,13 +783,8 @@ for i = 1:n_analysis
 
         %tmptime = dTrapa(i)+round((dNframes(i)-dTrapa(i))/2);
 
-        if do_localguv
-            tmptime = dTrapa(i)+100; % for local
-        else
-            tmptime = dTrapa(i)+35; % for global guvs
-        end
-
-
+        tmptime = dTrapa(i)+35; % for global guvs
+        %tmptime = dTrapa(i)+200; % for local
         
         if use_actin_ref
             [~,tmpid] = max(XtmpAref(:,tmptime));
@@ -733,8 +855,7 @@ imagesc(Zorig)
     if do_std_clims
         tmpmaxval = max(Zorig(:));
         tmpminval = min(Zorig(:));
-        ax = gca;
-        ax.CLim=[tmpminval, tmpmaxval];
+        clim([tmpminval, tmpmaxval])
     end
 ax = gca; ax.FontSize = afs;
 % if do_binarized 
@@ -756,8 +877,7 @@ if do_PCAonfullkymo
     if do_std_clims
         tmpmaxval = max(Zscaled1(:));
         tmpminval = min(Zscaled1(:));
-        ax = gca;
-        ax.CLim=[tmpminval, tmpmaxval];
+        clim([tmpminval, tmpmaxval])
     end
     ax = gca; ax.FontSize = afs;
     colorbar
@@ -769,8 +889,7 @@ f1pca(3) = figure;
     if do_std_clims
         tmpmaxval = max(Zfinal1(:));
         tmpminval = min(Zfinal1(:));
-        ax = gca;
-        ax.CLim=[tmpminval, tmpmaxval];
+        clim([tmpminval, tmpmaxval])
     end
     ax = gca; ax.FontSize = afs;
     colorbar
@@ -785,8 +904,7 @@ imagesc(Zscaled)
     if do_std_clims
         tmpmaxval = max(Zscaled(:));
         tmpminval = min(Zscaled(:));
-        ax = gca;
-        ax.CLim=[tmpminval, tmpmaxval];
+        clim([tmpminval, tmpmaxval])
     end
 ax = gca; ax.FontSize = afs;
 colorbar;
@@ -801,8 +919,7 @@ imagesc(Zfinal)
     if do_std_clims
         tmpmaxval = max(Zfinal(:));
         tmpminval = min(Zfinal(:));
-        ax = gca;
-        ax.CLim=[tmpminval, tmpmaxval];
+        clim([tmpminval, tmpmaxval])
     end
 ax = gca; ax.FontSize = afs;
 colorbar
@@ -824,8 +941,7 @@ imagesc(Zfinalrel)
     if do_std_clims
         tmpmaxval = max(Zfinalrel(:));
         tmpminval = min(Zfinalrel(:));
-        ax = gca;
-        ax.CLim=[tmpminval, tmpmaxval];
+        clim([tmpminval, tmpmaxval])
     end
 ax = gca; ax.FontSize = afs;
 colorbar
@@ -853,21 +969,12 @@ if do_PCAonfullkymo
 f1pca(9) = figure;
 Zmreshape = reshape(Zm,size(Xdata_align));
 imagesc(Zmreshape)
-ax = gca; 
-%     if do_std_clims 
-%         tmpmaxval = max(Zfinal(:));
-%         tmpminval = min(Zfinal(:));
-%         ax = gca;
-%         ax.CLim=[tmpminval, tmpmaxval];
-%     end
-% manual color lims
-
-if strcmp(which_qty,"curvature")
-    ax.CLim = [0.8,1.2];
-else
-    ax.CLim=[0,1];
-end
-ax.FontSize = afs;
+    if do_std_clims 
+        tmpmaxval = max(Zfinal(:));
+        tmpminval = min(Zfinal(:));
+        clim([tmpminval, tmpmaxval])
+    end
+ax = gca; ax.FontSize = afs;
 colorbar
 title('Mean kymograph')
 
@@ -875,10 +982,9 @@ f1pca(10) = figure;
 Z1reshape = reshape(Zsvectors(:,1),size(Xdata_align));
 imagesc(Z1reshape)
     if do_std_clims
-        tmpmaxval = max(Zsvectors(:,1:pc_clims),[],'all');
-        tmpminval = min(Zsvectors(:,1:pc_clims),[],'all');
-        ax = gca;
-        ax.CLim=[tmpminval, tmpmaxval];
+        tmpmaxval = max(Zsvectors(:,1:3),[],'all');
+        tmpminval = min(Zsvectors(:,1:3),[],'all');
+        clim([tmpminval, tmpmaxval])
     end
 ax = gca; ax.FontSize = afs;
 colorbar
@@ -888,10 +994,9 @@ f1pca(11) = figure;
 Z2reshape = reshape(Zsvectors(:,2),size(Xdata_align));
 imagesc(Z2reshape)
     if do_std_clims
-        tmpmaxval = max(Zsvectors(:,1:pc_clims),[],'all');
-        tmpminval = min(Zsvectors(:,1:pc_clims),[],'all');
-        ax = gca;
-        ax.CLim=[tmpminval, tmpmaxval];
+        tmpmaxval = max(Zsvectors(:,1:3),[],'all');
+        tmpminval = min(Zsvectors(:,1:3),[],'all');
+        clim([tmpminval, tmpmaxval])
     end
 ax = gca; ax.FontSize = afs;
 colorbar
@@ -901,58 +1006,51 @@ f1pca(12) = figure;
 Z3reshape = reshape(Zsvectors(:,3),size(Xdata_align));
 imagesc(Z3reshape)
     if do_std_clims
-        tmpmaxval = max(Zsvectors(:,1:pc_clims),[],'all');
-        tmpminval = min(Zsvectors(:,1:pc_clims),[],'all');
-        ax = gca;
-        ax.CLim=[tmpminval, tmpmaxval];
+        tmpmaxval = max(Zsvectors(:,1:3),[],'all');
+        tmpminval = min(Zsvectors(:,1:3),[],'all');
+        clim([tmpminval, tmpmaxval])
     end
 ax = gca; ax.FontSize = afs;
 colorbar
 title('PC3 kymograph')
 
-    if ~do_localguv
-
-        f1pca(13) = figure;
-        Z4reshape = reshape(Zsvectors(:,4),size(Xdata_align));
-        imagesc(Z4reshape)
-            if do_std_clims
-                tmpmaxval = max(Zsvectors(:,1:pc_clims),[],'all');
-                tmpminval = min(Zsvectors(:,1:pc_clims),[],'all');
-                ax = gca;
-                ax.CLim=[tmpminval, tmpmaxval];
-            end
-        ax = gca; ax.FontSize = afs;
-        colorbar
-        title('PC4 kymograph')
-        
-        f1pca(14) = figure;
-        Z5reshape = reshape(Zsvectors(:,5),size(Xdata_align));
-        imagesc(Z5reshape)
-            if do_std_clims
-                tmpmaxval = max(Zsvectors(:,1:pc_clims),[],'all');
-                tmpminval = min(Zsvectors(:,1:pc_clims),[],'all');
-                ax = gca;
-                ax.CLim=[tmpminval, tmpmaxval];
-            end
-        ax = gca; ax.FontSize = afs;
-        colorbar
-        title('PC5 kymograph')
-        
-        f1pca(15) = figure;
-        Z6reshape = reshape(Zsvectors(:,6),size(Xdata_align));
-        imagesc(Z6reshape)
-            if do_std_clims
-                tmpmaxval = max(Zsvectors(:,1:pc_clims),[],'all');
-                tmpminval = min(Zsvectors(:,1:pc_clims),[],'all');
-                ax = gca;
-                ax.CLim=[tmpminval, tmpmaxval];
-            end
-        ax = gca; ax.FontSize = afs;
-        colorbar
-        title('PC6 kymograph')
+f1pca(13) = figure;
+Z4reshape = reshape(Zsvectors(:,4),size(Xdata_align));
+imagesc(Z4reshape)
+    if do_std_clims
+        tmpmaxval = max(Zsvectors(:,1:3),[],'all');
+        tmpminval = min(Zsvectors(:,1:3),[],'all');
+        clim([tmpminval, tmpmaxval])
     end
+ax = gca; ax.FontSize = afs;
+colorbar
+title('PC4 kymograph')
 
+f1pca(14) = figure;
+Z5reshape = reshape(Zsvectors(:,5),size(Xdata_align));
+imagesc(Z5reshape)
+    if do_std_clims
+        tmpmaxval = max(Zsvectors(:,1:3),[],'all');
+        tmpminval = min(Zsvectors(:,1:3),[],'all');
+        clim([tmpminval, tmpmaxval])
+    end
+ax = gca; ax.FontSize = afs;
+colorbar
+title('PC5 kymograph')
+
+f1pca(15) = figure;
+Z6reshape = reshape(Zsvectors(:,6),size(Xdata_align));
+imagesc(Z6reshape)
+    if do_std_clims
+        tmpmaxval = max(Zsvectors(:,1:3),[],'all');
+        tmpminval = min(Zsvectors(:,1:3),[],'all');
+        clim([tmpminval, tmpmaxval])
+    end
+ax = gca; ax.FontSize = afs;
+colorbar
+title('PC6 kymograph')
 end
+
 % figure;
 % plot(Zsvectors(:,4:6),'LineWidth',3)
 % ax = gca; ax.FontSize = afs;
@@ -1050,7 +1148,7 @@ dShapes(:,1) = dEccent;
 
 
 
-[f1b,Eall,Emed,Sall,Smed] = plotentropyglobalshape(figEidxB,dEntrpChem,dShapes,pstatalign,fileparams);
+[f1b,Eall,Emed,Sall,Smed,framenums] = plotentropyglobalshape(figEidxB,dEntrpChem,dShapes,pstatalign,fileparams);
 
 
 if newsavefigs
@@ -1509,7 +1607,108 @@ end
 %---------------------------------------------------------------
 
 %---------------------------------------------------------------
+function bdy_sg = sgsmoothboundary(I,bdy,windowWidth,polynomialOrder)
+%% smooth boundary using savitsky golay filter
 
+% make equal spacing before sgsmooth to have each 
+n = size(bdy,1); % circular
+Borig1 = interpboundary(bdy,n); % circular
+
+
+% get unique points, non-circular
+x = Borig1(1:end-1,2); y = Borig1(1:end-1,1);
+
+% overlap curve of unique boundary points
+% workaround edge effects problems with sgolayfilt
+overlap = 2*windowWidth;
+xplus = [x; x(1:overlap)];
+yplus = [y; y(1:overlap)];
+
+% Now smooth with a Savitzky-Golay sliding polynomial filter
+xs = sgolayfilt(xplus, polynomialOrder, windowWidth);
+ys = sgolayfilt(yplus, polynomialOrder, windowWidth);
+%xs = [xs; xs(1)]; ys = [ys; ys(1)];
+
+Borigs1 = [ys,xs];
+
+% keep region with good smoothing, and keep length same as unique boundary points
+Borigs2 = Borigs1(windowWidth+1:end-windowWidth,:);
+
+% circular shift to match indices to original list of boundary points
+Borigs3 = circshift(Borigs2,windowWidth);
+
+% make circular bc currently NONE of the lists are circular
+bdy_sg = [Borigs3;Borigs3(1,:)];
+
+%Borigs4 = interpboundary(Borigs3c,length(Borig));
+Borigs4 = bdy_sg;
+
+% f50 = figure(50); %clf(f50);
+% imshow(I);
+% axis equal, hold on;
+% plot(bdy(1,2),bdy(1,1),'r*','LineWidth',10)
+% plot(bdy(end,2),bdy(end,1),'wx','LineWidth',10)
+% plot(bdy(:,2),bdy(:,1),'g*','LineWidth',2)
+% plot(Borigs4(1,2),Borigs4(1,1),'r*','LineWidth',10)
+% plot(Borigs4(end,2),Borigs4(end,1),'wx','LineWidth',10)
+% plot(Borigs4(:,2),Borigs4(:,1),'b*','LineWidth',2)
+% title('Original (green), Savitzky-Golay smoothed (blue)',...
+%     'FontSize',10);
+% f50.Position(3:4) = [500 500];
+% drawnow
+
+% % original boundary
+% plot(bdy(1,2),bdy(1,1),'r*','LineWidth',10)
+% plot(bdy(end,2),bdy(end,1),'wx','LineWidth',10)
+% plot(bdy(:,2),bdy(:,1),'g*','LineWidth',2)
+% % interpolated boundary for equal spacing
+% plot(Borig1(1,2),Borig1(1,1),'r*','LineWidth',10)
+% plot(Borig1(end,2),Borig1(end,1),'wx','LineWidth',10)
+% plot(Borig1(:,2),Borig1(:,1),'g*','LineWidth',2)
+% title('Original boundary (green), equal spaced boundary (blue)')
+% hold off
+% drawnow
+
+
+end
+
+function varargout = interpboundary(bdy,n,varargin)
+    % This function takes a boundary and, possibly, data and a number n and 
+    % interpolates the boundary and any data so that it is now of length n
+    % for circular data: n = (# of desired unique points) + 1
+    % output is circular if input is circular
+    itype = 'makima'; % avoids excessive undulations
+    %itype = 'pchip';
+    if nargin~=nargout+1
+        disp('Error: Number of input and output data sets must equal')
+    else 
+        d       = diff(bdy); % difference between rows of bdy
+        dist    = sqrt(d(:,1).^2+d(:,2).^2);
+        cumdist = [0;cumsum(dist)]; % (x) cumulative distances around boundary
+        perim   = max(cumdist);
+        s       = linspace(0,1,n)*perim; % (xq) n query points from 0 to perim
+        % vq = interp1(x,v,xq,method)
+        % interpolate (row,col) ie (y,x) coordinates across cumulative sum of boundary arc length
+        row       = interp1(cumdist,bdy(:,1),s,itype)';
+        col       = interp1(cumdist,bdy(:,2),s,itype)';
+        B = [row col];
+
+        varargout = cell(length(varargin)+1,1);
+        varargout{1}=B;
+        for i=1:length(varargin)
+            % if nans just return nans
+            if all(isnan(varargin{i}))
+                varargout{i+1} = nan(length(row),1);
+%                 disp('Error: Found NaNs in list')
+            else
+%                 interpolate fluorescent signal,velocities,other quantities
+%                 across cumulative sum of boundary arc length
+                varargout{i+1}  = interp1(cumdist,varargin{i},s,itype)';
+            end
+
+        end
+     end
+end
 
 function varargout = mavgsmoothboundary(mfilter,varargin)
     %%
@@ -1923,10 +2122,10 @@ xticks([tmpframes(1):tickstep:tmpframes(end)])
 
 %ylim([0,8])
 ax7.Parent.YLabel.String = 'Variance';
-%ax7.Parent.YLabel.FontName = 'Arial';
+ax7.Parent.YLabel.FontName = 'Arial';
 %ax7.Parent.YLabel.FontSize = tlsize;
 ax7.Parent.XLabel.String = 'Frames';
-%ax7.Parent.XLabel.FontName = 'Arial';
+ax7.Parent.XLabel.FontName = 'Arial';
 %ax7.Parent.XLabel.FontSize = tlsize;
 % title(strcat(outputname,{' '},': entropy in boundary quantities'),'Interpreter','none',...
 %     'FontSize',tlsize)
@@ -2026,7 +2225,7 @@ xline(0,'LineWidth',2);
 
 %ylim([0,8])
 ax7.Parent.YLabel.String = 'Variance';
-%ax7.Parent.YLabel.FontName = 'Arial';
+ax7.Parent.YLabel.FontName = 'Arial';
 
 %% now plot shape parameters on right y-axis
 
@@ -2092,10 +2291,10 @@ xticks([tmpframes(1):tickstep:tmpframes(end)])
 
 ylim([0,0.85])
 ax7.Parent.YLabel.String = 'Shape quantities';
-%ax7.Parent.YLabel.FontName = 'Arial';
+ax7.Parent.YLabel.FontName = 'Arial';
 %ax7.Parent.YLabel.FontSize = tlsize;
 ax7.Parent.XLabel.String = 'Frames';
-%ax7.Parent.XLabel.FontName = 'Arial';
+ax7.Parent.XLabel.FontName = 'Arial';
 %ax7.Parent.XLabel.FontSize = tlsize;
 % title(strcat(outputname,{' '},': entropy in boundary quantities'),'Interpreter','none',...
 %     'FontSize',tlsize)
@@ -2404,7 +2603,7 @@ if do_absvals
 legend(ax8(1:nky),["ActA";"Actin";"Abs.Val. Cumulative disp.";"Abs.Val. Curvature"],'Location','southeast',...
     'FontSize',tlsize,'Location','eastoutside')
 else
-legend(ax8(1:nky),["ActA";"Actin";"Cumulative disp.";"Curvature"],'Location','southeast',...
+legend(ax8(1:nky),["ActA";"Actin";"Cumulative disp.";"Curvature";"Membrane marker"],'Location','southeast',...
     'FontSize',tlsize,'Location','eastoutside')
 end
 %     legend('Velocity','Curvature','Cumul. displacement','Membrane marker','Actin','ActA',...
@@ -2417,10 +2616,10 @@ xticks([tmpframes(1):tickstep:tmpframes(end)])
 
 ylim([0,8])
 ax7.Parent.YLabel.String = 'Entropy';
-%ax7.Parent.YLabel.FontName = 'Arial';
+ax7.Parent.YLabel.FontName = 'Arial';
 %ax7.Parent.YLabel.FontSize = tlsize;
 ax7.Parent.XLabel.String = 'Frames';
-%ax7.Parent.XLabel.FontName = 'Arial';
+ax7.Parent.XLabel.FontName = 'Arial';
 %ax7.Parent.XLabel.FontSize = tlsize;
 % title(strcat(outputname,{' '},': entropy in boundary quantities'),'Interpreter','none',...
 %     'FontSize',tlsize)
@@ -2442,7 +2641,7 @@ drawnow;
 end % end plotentropylocalshape
 
 
-function [f1,Eallguv,Kmed,Sallguv,KmedS] = plotentropyglobalshape(fignum,dEChem,dShapes,pstatalign,fileparams)
+function [f1,Eallguv,Kmed,Sallguv,KmedS,tmpframes] = plotentropyglobalshape(fignum,dEChem,dShapes,pstatalign,fileparams)
 v2struct(fileparams);
 v2struct(pstatalign);
 % v2struct(varshapes); % global shape features
@@ -2520,7 +2719,7 @@ xline(0,'LineWidth',2);
 
 ylim([0,8])
 ax7.Parent.YLabel.String = 'Entropy';
-%ax7.Parent.YLabel.FontName = 'Arial';
+ax7.Parent.YLabel.FontName = 'Arial';
 
 %% now plot shape parameters on right y-axis
 
@@ -2586,10 +2785,10 @@ xticks([tmpframes(1):tickstep:tmpframes(end)])
 
 ylim([0,0.85])
 ax7.Parent.YLabel.String = 'Shape quantities';
-%ax7.Parent.YLabel.FontName = 'Arial';
+ax7.Parent.YLabel.FontName = 'Arial';
 %ax7.Parent.YLabel.FontSize = tlsize;
 ax7.Parent.XLabel.String = 'Frames';
-%ax7.Parent.XLabel.FontName = 'Arial';
+ax7.Parent.XLabel.FontName = 'Arial';
 %ax7.Parent.XLabel.FontSize = tlsize;
 % title(strcat(outputname,{' '},': entropy in boundary quantities'),'Interpreter','none',...
 %     'FontSize',tlsize)
@@ -2954,10 +3153,10 @@ for j = 1:nxoth
     ax7.XLim=[0, maxf1];
 
     ax7.YLabel.String = strcat(corrtype,{' '},'correlation coef.');
-    %ax7.YLabel.FontName = 'Arial';
+    ax7.YLabel.FontName = 'Arial';
     %ax7.YLabel.FontSize = tlsize;
     ax7.XLabel.String = 'Frames';
-    %ax7.XLabel.FontName = 'Arial';
+    ax7.XLabel.FontName = 'Arial';
     %ax7.XLabel.FontSize = tlsize;
     ax7.FontSize = tlsize;
 
@@ -3476,10 +3675,10 @@ for k = 1:nxoth
    
 
     ax7.Parent.YLabel.String = compstr(k);
-    %ax7.Parent.YLabel.FontName = 'Arial';
+    ax7.Parent.YLabel.FontName = 'Arial';
     ax7.Parent.YLabel.FontSize = tlsize;
     ax7.Parent.XLabel.String = refstr;
-    %ax7.Parent.XLabel.FontName = 'Arial';
+    ax7.Parent.XLabel.FontName = 'Arial';
     ax7.Parent.XLabel.FontSize = tlsize;
 
 
@@ -3509,10 +3708,10 @@ for k = 1:nxoth
     ax7.Parent.XLim=[xmin, xmin + 1.2*(xmax-xmin)];
 
     ax7.Parent.YLabel.String = compstr(k);
-    %ax7.Parent.YLabel.FontName = 'Arial';
+    ax7.Parent.YLabel.FontName = 'Arial';
     ax7.Parent.YLabel.FontSize = tlsize;
     ax7.Parent.XLabel.String = refstr;
-    %ax7.Parent.XLabel.FontName = 'Arial';
+    ax7.Parent.XLabel.FontName = 'Arial';
     ax7.Parent.XLabel.FontSize = tlsize;
 
 
