@@ -10,6 +10,8 @@ Code 2 generate kymographs for biochemical properties (membrane  marker, ActA, a
 
 Code 3 applies correlation analysis and principal component analysis to study symmetry breaking. It also contains code for analysis of radial actin polymerization rate for locally stimulated GUVs. 
 
+Code for generating simulations of ActA and Actin in supplemental figure 15 is found in: simActA_Actin_NOmarkernormalization.m
+
 Additional details regarding the approaches used can be found in the Supplementary Information section of the paper. 
 
 Please read the citation details below if you would like to use a part of this repository in your research.
