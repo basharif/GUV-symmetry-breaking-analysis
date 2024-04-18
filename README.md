@@ -4,12 +4,14 @@ This repository contains the code used for symmetry breaking analysis of giant u
 Shiva Razavi, Felix Wong, Bedri Abubaker-Sharif, Hideaki T. Matsubayashi, Hideki Nakamura, Eduardo Sandoval, Douglas N. Robinson, Baoyu Chen, Jian Liu, Pablo A. Iglesias, and Takanari Inoue. “Synthetic control of actin polymerization and symmetry breaking in active protocells”. 
 DOI:   
 
-Code 1 generates masks to segment GUVs. 
+### Code 1 generates masks to segment GUVs. 
 The _G01_input_ folder contains raw tiff files separated by channels from experimental data. Run Code_1_segmentation.m to generate a mask for the target. Output is in the _G01_acs_v0_ folder. There are tif files for the smoothed images (“_final.tif”), and tif files for the masks (the main one being “_mask_inclusion.tif”). To check the mask, open “_mask_fused.tif” which has the mask overlayed on the channel used to generate it (here, a membrane marker channel). Search the code file for "\*\*SETUP\*\*" which indicate sections of the code with variables that can be adjusted as needed. 
 
-Code 2 generate kymographs for biochemical properties (membrane  marker, ActA, and actin signal) and physical properties (curvature and eccentricity) of GUVs. The "target_settings.csv" file contains parameters for each guv that need to be adjusted (naming, number of frames to use, time of rapamycin addition, inner-outer mask size parameter, and center angle for kymographs). Search the code file for "\*\*SETUP\*\*" which indicate sections of the code with variables can be adjusted as needed. Output for data from a single target's relevant tif files (e.g. tifs in _G01_acs_v0_ folder) is in the _G01_singlerun_output_ folder. If multiple targets are identified and segmented in separate folders (_G01_input/G01_acs_v0_, _G02_input/G02_acs_v0_ etc,), then the settings for each target can be listed in the “target_settings.csv” document and Code_2_kymographs.m can be setup to read data from a table (set the “runtype” variable to 2).  
+### Code 2 generate kymographs for biochemical properties (membrane  marker, ActA, and actin signal) and physical properties (curvature and eccentricity) of GUVs. 
+The "target_settings.csv" file contains parameters for each guv that need to be adjusted (naming, number of frames to use, time of rapamycin addition, inner-outer mask size parameter, and center angle for kymographs). Search the code file for "\*\*SETUP\*\*" which indicate sections of the code with variables can be adjusted as needed. Output for data from a single target's relevant tif files (e.g. tifs in _G01_acs_v0_ folder) is in the _G01_singlerun_output_ folder. If multiple targets are identified and segmented in separate folders (_G01_input/G01_acs_v0_, _G02_input/G02_acs_v0_ etc,), then the settings for each target can be listed in the “target_settings.csv” document and Code_2_kymographs.m can be setup to read data from a table (set the “runtype” variable to 2).  
 
-Code 3 applies correlation analysis and principal component analysis to study symmetry breaking. It also contains code for analysis of radial actin polymerization rate for locally stimulated GUVs. 
+## Code 3 applies correlation analysis and principal component analysis to study symmetry breaking. 
+It also contains code for analysis of radial actin polymerization rate for locally stimulated GUVs. 
 
 Code for generating simulations of ActA and Actin in supplemental figure 15 is found in: simActA_Actin_NOmarkernormalization.m
 
