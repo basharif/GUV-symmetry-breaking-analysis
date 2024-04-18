@@ -1,68 +1,81 @@
 format compact
 clearvars, clc
 close all
-warning('off','all')
-%set(0,'DefaultFigureWindowStyle','normal') 
+%warning('off','all')
+%set(groot,'DefaultFigureWindowStyle','normal') 
+
+%% IMPORTANT:
+% check all sections in the code marked by "**SETUP**" (search the code)
 
 
-%% SETTINGS 
+
+%% **SETUP** SETTINGS 
 %--------------------------------------------------------------------------   
-aligncase       = 0; % TOGGLE THIS TO DO ALIGNMENT 
-submaskcase     = 0; % TOGGLE THIS TO DO SUB-MASKING
-savefigs        = 1;
-fixAllFrames    = 0; % when false: specify in frames2fix 
-guvname         = 'Global6_DPPC';
-listFrames      = [1:89];   % choose frames to include in analysis, in ascending order
+aligncase       = 0; % TOGGLE THIS TO DO ALIGNMENT (usually 0)
+submaskcase     = 0; % TOGGLE THIS TO DO SUB-MASKING (usually 0)
+savefigs        = 1; % saving data? 1/true for yes, 0/false for no
+fixAllFrames    = 0; % when 0 or false: 
+% KEY: test with initial run 
+% then specify frames to fix in frames2fix variable below
+targname         = 'G01'; % name the target 
+listFrames      = [1:20];   % choose frames to include in analysis, in ascending order
 
-% inputfolder     = strcat(guvname,'_input/L04-30_raw/');
-% outputfolder    = strcat(guvname,'_input/',guvname,'_acs_v0/'); % name of output folder
+% input folder: folder with raw tifs separated for each channel
+inputfolder     = strcat(targname,'_input/G01_raw/');
+% aligncropsegment (ACS) folder: folder to save the mask, overlays, and smoothed images
+outputfolder    = strcat(targname,'_input/',targname,'_acs_v0/'); 
 
-inputfolder     = strcat('Supp_',guvname,'_input/');
-outputfolder    = strcat('Supp_',guvname,'_input/processed/'); % name of output folder
-
-
-% ALWAYS place membrane marker in fname1 or reference frame
-% fname1          = strcat(guvname,'_membprox'); % membprox
-% fname2          = strcat(guvname,'_actin'); 
-% fname3          = strcat(guvname,'_ActAprox'); % ActAprox
-% fnames          = {fname1;fname2;fname3};
-
-fname1          = strcat(guvname,'_mCh'); % membrane marker file name
-fname2          = strcat(guvname,'_YFP'); % actin marker file name
-fname3          = strcat(guvname,'_CFP');
+% name of files in the input folder - label fluor channels 
+fname1          = strcat(targname,'_mCh_memb'); % membrane marker file name
+fname2          = strcat(targname,'_YFP_actin'); % actin marker file name
+fname3          = strcat(targname,'_CFP_ActA'); % 
 fnames          = {fname1;fname2;fname3};
 
-% if strcmp(guvname(1),'L')
-%     fname1          = strcat(guvname,'_CmCh'); % membrane marker file name
-%     fname2          = strcat(guvname,'_CYFP'); % actin marker file name
-%     fname3          = strcat(guvname,'_CCFP');
-%     % fname4          = strcat(guvname,'_BF');
-%     % fname5          = strcat(guvname,'_647_dye');
+% if strcmp(targname(1),'L')
+%     fname1          = strcat(targname,'_CmCh'); % membrane marker file name
+%     fname2          = strcat(targname,'_CYFP'); % actin marker file name
+%     fname3          = strcat(targname,'_CCFP');
+%     % fname4          = strcat(targname,'_BF');
+%     % fname5          = strcat(targname,'_647_dye');
 %     fnames          = {fname1;fname2;fname3};
 %     needlech            = 4 ; % BF channel for needle
-% elseif strcmp(guvname(1),'G')
-%     fname1          = strcat(guvname,'_CmCh'); % membrane marker file name
-%     fname2          = strcat(guvname,'_CYFP'); % actin marker file name
-%     fname3          = strcat(guvname,'_CCFP');
+% elseif strcmp(targname(1),'G')
+%     fname1          = strcat(targname,'_CmCh'); % membrane marker file name
+%     fname2          = strcat(targname,'_CYFP'); % actin marker file name
+%     fname3          = strcat(targname,'_CCFP');
 %     fnames          = {fname1;fname2;fname3};
 % end
 
+%OPTIONAL: if need to extract tifs from avi 
+% obj = VideoReader('nuc1.avi');
+% vid = read(obj);
+% frames = obj.NumFrames;
+% for x = 1 : frames
+%     vidtmp = uint8(vid(:,:,2,x));
+%     imwrite(vidtmp,strcat(inputfolder,fname1,'.tif'),'WriteMode','append');
+% end
+
+% identify the channel to use for segmentation (e..g membrane marker)
 maskchannel     = 1; % channel number of mask
-maskfname       = strcat(guvname,'_mask');
+maskfname       = strcat(targname,'_mask');
+
 initmag         = 400; 
 
-
-% Pick one of these - default is 'circle'
-    fixFrameCommand = 'circle';
-    %fixFrameCommand = 'polygon';
+% Pick one of these - default is 'circle'; 
+% used for manual segmentation
+    %fixFrameCommand = 'circle';
+    fixFrameCommand = 'polygon';
     %fixFrameCommand = 'rectangle';
-
+ 
 % ---------------------------------------------------------
 nchannels       = length(fnames);
 
 fullFileNames   = cell(1,nchannels);
 allr0           = cell(1,nchannels);
 allr1           = cell(1,nchannels);
+
+
+
 for i = 1:nchannels
     fullFileNames{i}  = strcat(inputfolder,fnames{i},'_aligned.tif');
     if ~isfile(fullFileNames{i})
@@ -71,7 +84,7 @@ for i = 1:nchannels
 end
 
 
-tstamp1 = string(datetime('now','Format','dd_MMM_yyyy_HH_mm_ss'));
+tstamp1 = datestr(now,'dd-mmm-yyyy_HH_MM_SS');
 % gather general info from channel 1
 finfo        = imfinfo(fullFileNames{1});
 nallframes   = length(finfo);
@@ -87,10 +100,10 @@ nframes      = length(listFrames);
 
 % frames for segmentation
 if fixAllFrames
-    frames2fix = [1:30];   
-    frames2fix_second = [1:30];
+    frames2fix = [1:listFrames(end)];   
+    frames2fix_second = [1:listFrames(end)];
 else
-    frames2fix = [1:5]; % specify which frames to fix here
+    frames2fix = [1:5,20:28]; % specify which frames to fix here
     %frames2fix = [1]; % specify which frames to fix here
     frames2fix_second = [1:5];
 end
@@ -157,11 +170,11 @@ end
 % initial temporal and rect crop, initial mask
 % rectangular crop initial based on membrane marker first frame
 if aligncase == 0
-    [I1gs0,I1orig0] = readframe(fullFileNames{maskchannel},1); %uint16 output (not rgb)    
+    [I1gs0,I1orig0] = readframe(fullFileNames{maskchannel},1); %uint output (not rgb)    
 else
     %make sure frows and fcols have been updated to use indices of aligned images
     maskch_align = cat(3,allImages_align{:,maskchannel});
-    [I1gs0,I1orig0] = readframe(maskch_align,1); %uint16 output (not rgb)    
+    [I1gs0,I1orig0] = readframe(maskch_align,1); %uint output (not rgb)    
 end
 
 I1rectp = rectcropThisFrame(I1gs0);
@@ -213,6 +226,8 @@ else
     [allImages, allBW] = segmentframes(listFrames,rectrows,rectcols,allr0,allr1,...
         saveseg,varpass);
 end
+
+
 
 
 %% -----------
@@ -275,7 +290,7 @@ for i = 1:nlist
         visboundaries(BW,'Color','y');
         choice = timeoutdlg(delay);
         if ((choice~='n')&&(choice~='N'))&&(choice~=0) %((choice=='y')||(choice=='Y'))
-            choice2 = secondtimeoutdlg(delay);
+            choice2 = secondtimeoutdlg(delay,fixFrameCommand);
             BW = fixThisFrame(Xinit,BW,choice2);
         end
         title('initializing mask based on only first frame')
@@ -487,7 +502,7 @@ for k = 1:nchannels
             drawnow
             choice = timeoutdlg(delay);
             if ((choice~='n')&&(choice~='N'))&&(choice~=0)
-                choice2 = secondtimeoutdlg(delay);
+                choice2 = secondtimeoutdlg(delay,fixFrameCommand);
                 BW = fixThisFrame(Xinit,BW,choice2);
             end
             title('initializing mask based on only first frame')
@@ -508,7 +523,7 @@ for k = 1:nchannels
                 drawnow
                 choice = timeoutdlg(delay);
                 if ((choice~='n')&&(choice~='N'))&&(choice~=0)
-                    choice2 = secondtimeoutdlg(delay);
+                    choice2 = secondtimeoutdlg(delay,fixFrameCommand);
                     BW = fixThisFrame(Xinit,BW,choice2);
                 end
                 title('finalizing mask')
@@ -545,7 +560,7 @@ for k = 1:nchannels
                 drawnow
                 choice = timeoutdlg(delay);
                 if ((choice~='n')&&(choice~='N'))&&(choice~=0)
-                    choice2 = secondtimeoutdlg(delay);
+                    choice2 = secondtimeoutdlg(delay,fixFrameCommand);
                     BW = fixThisFrame(Xinit_seg,BW,choice2);
                 end
                 title('finalizing mask')
@@ -581,7 +596,7 @@ for k = 1:nchannels
                 drawnow
                 choice = timeoutdlg(delay);
                 if ((choice~='n')&&(choice~='N'))&&(choice~=0)
-                    choice2 = secondtimeoutdlg(delay);
+                    choice2 = secondtimeoutdlg(delay,fixFrameCommand);
                     BW = fixThisFrame(Xinit_seg,BW,choice2);
                 end
                 title('finalizing mask')
@@ -602,7 +617,7 @@ for k = 1:nchannels
             end
         end        
 
-%     % add noise to the mask channel
+%     % add noise to the just the boundary of the mask channel
 %     if k == maskchannel || k == 3 % ActA is channel 3
 %         Xorig_noise = imnoise(Xorig,"gaussian",0,0.1);
 %         BW2 = imerode(BW,strel("disk",20));
@@ -625,23 +640,38 @@ for k = 1:nchannels
         
     if saveseg % create tiff series segmentation
         % save mask and image as tiff series if did segmentation in matlab
-        if bits == 8; bwim = im2uint8(BW); 
-        elseif bits == 16; bwim = im2uint16(BW);
-        elseif bits == 32; bwim = im2uint32(BW);
+        if bits == 8; bwim = im2uint8(BW); bwimnot = im2uint8(~BW);
+        elseif bits == 16; bwim = im2uint16(BW);bwimnot = im2uint16(~BW);
+        elseif bits == 32; bwim = im2uint32(BW);bwimnot = im2uint32(~BW);
         end
+        Xseg = immultiply(Xorig,BW);
+        %bwnot = uint8(255*~BW);
         if movieFrame == im0 
             imwrite(Xorig,strcat(outputfolder,fnames{k},'_final.tif'));
             if k == maskchannel
-                    imwrite(bwim,strcat(outputfolder,maskfname,'_final.tif'));
+                    imwrite(bwim,strcat(outputfolder,maskfname,'_inclusion.tif'));
+                    imwrite(bwimnot,strcat(outputfolder,maskfname,'_exclusion.tif'));
+                    %imwrite(bwnot,strcat(outputfolder,maskfname,'_exclusionv2.tif'));
+
                     imwrite(Xfused,strcat(outputfolder,maskfname,'_fused.tif'));
+                    imwrite(Xseg,strcat(outputfolder,maskfname,'_seg.tif'));
             end
+
         else
             imwrite(Xorig,strcat(outputfolder,fnames{k},'_final.tif'),...
                 'WriteMode','append');
             if k == maskchannel
-                imwrite(bwim,strcat(outputfolder,maskfname,'_final.tif'),...
+                imwrite(bwim,strcat(outputfolder,maskfname,'_inclusion.tif'),...
                     'WriteMode','append');
+                imwrite(bwimnot,strcat(outputfolder,maskfname,'_exclusion.tif'),...
+                    'WriteMode','append');
+                % imwrite(bwnot,strcat(outputfolder,maskfname,'_exclusionv2.tif'),...
+                %     'WriteMode','append');
+
+                
                 imwrite(Xfused,strcat(outputfolder,maskfname,'_fused.tif'),...
+                    'WriteMode','append');
+                imwrite(Xseg,strcat(outputfolder,maskfname,'_seg.tif'),...
                     'WriteMode','append');
             end
         end
@@ -676,6 +706,9 @@ function [I,Iorig]=readframe(fullFileName,frame)
 end
 
 function nBW = fixThisFrame(I,BW,fixFrameCommand)
+
+% this assumes the roi you drew is accurate
+% will be run twice when using sub-mask 
     if nargin<3
         fixFrameCommand = 'circle';
     end
@@ -683,7 +716,9 @@ function nBW = fixThisFrame(I,BW,fixFrameCommand)
     imshow(I,[],'InitialMagnification',600);
     axis equal, hold on
     if strcmp(fixFrameCommand,'rectangle')
-        text(48,48,'Use the mouse to draw a rectangle around the desired cell',...
+        text(1,5,'Use the mouse to draw a rectangle around the target.',...
+            'Color','y','FontSize',16)
+        text(1,10,'Adjust and drag as needed. Then double click.',...
             'Color','y','FontSize',16)
         BW = bwareaopen(BW,200);
         visboundaries(BW,'Color','y');
@@ -691,7 +726,9 @@ function nBW = fixThisFrame(I,BW,fixFrameCommand)
         roi = drawrectangle;
         wait(roi);
     elseif strcmp(fixFrameCommand,'polygon')
-        text(48,48,'Use the mouse to draw a polygon around the desired cell',...
+        text(1,5,'Use the mouse to draw a polygon around the target.',...
+            'Color','y','FontSize',16)
+        text(1,10,'Adjust and drag as needed. Then double click.',...
             'Color','y','FontSize',16)
         BW = bwareaopen(BW,200);
         visboundaries(BW,'Color','y');
@@ -699,7 +736,9 @@ function nBW = fixThisFrame(I,BW,fixFrameCommand)
         roi = drawpolygon;
         wait(roi);
     else %strcmp(fixFrameCommand,'circle')
-        text(48,48,'Use the mouse to draw a circle around the desired cell',...
+        text(1,5,'Use the mouse to draw a circle around the target.',...
+            'Color','y','FontSize',16)
+        text(1,10,'Adjust and drag as needed. Then double click.',...
             'Color','y','FontSize',16)
         BW = bwareaopen(BW,200);
         visboundaries(BW,'Color','y');
@@ -713,6 +752,8 @@ function nBW = fixThisFrame(I,BW,fixFrameCommand)
     nBW = bwareaopen(nBW,100);
     f4 = figure(4); clf(f4);
     imshow(I,[],'InitialMagnification',600);
+    text(1,5,'New mask. Press any key to continue.',...
+            'Color','y','FontSize',16)
     axis equal, hold on
     visboundaries(nBW,'Color','r');
     drawnow
@@ -724,8 +765,11 @@ function rectpos = rectcropThisFrame(I)
     figure(1); clf;
     imshow(I,[],'InitialMagnification',400);
     axis equal, hold on
-    text(48,48,'Use the mouse to draw a rectangle around the desired cell',...
+    text(1,5,'Use the mouse to crop a rough region around the target.',...
         'Color','y','FontSize',16)
+    text(1,20,'Adjust corners. Then double click.',...
+        'Color','y','FontSize',16)
+
     roi = drawrectangle;
     wait(roi);
     rectpos = roi.Position;
@@ -733,7 +777,8 @@ function rectpos = rectcropThisFrame(I)
 end
 
 function BW = segment(I0,oBW,varargin)
-
+    % prop sets how far out Itmp1 will extend for target
+    % smaller prop --> Itmp1 is 1 for target, and stays close to 1 even farther out
     prop = 0.05; %0.05
     if isempty(varargin)
         minArea = 500; %100
@@ -745,34 +790,58 @@ function BW = segment(I0,oBW,varargin)
     I = im2uint16(I0);
     T = graythresh(I);
     if nargin==2
-        % dBW = distance to nearest "logical 1" pixel;
+        % dBW = distance to nearest logical "True/Target" pixel in oBW; (0 for "target" pixels)
         % dBW is high for background far from the target in oBW
         dBW  = bwdist(oBW); 
         %figure(5); imshow(dBW,[]);
-        % Itmp1 is ON for target and decreases as pixels get farther away
+        % Itmp is 1 for target and decreases as pixels get farther away
         % from target
         Itmp1 = 1./(1+prop*dBW); 
         %figure(6); imshow(Itmp1,[]);
-        % make a cutoff for Itmp to be 0 beyond a certain distance
+        % Itmp2 is a slightly expanded form of the mask oBW
+        % 1 at target, slightly less than 1 around target, suddenly 0 beyond maxdistance
         Itmp2 = immultiply(dBW<maxDistance,Itmp1);
         %figure(7); imshow(Itmp2,[]);
+
+        % Iplus is Itmp2 approx.mask applied to current frame
+        % 0 for background, image values at the more interior target zone, 
+        % slightly less than image values at the edges (based on maxdistance)
         Iplus    = uint16(immultiply(single(I),Itmp2));
+        %figure(8); imshow(Iplus,[]);
+
+        pT = 1; % 0.75 default before
     else
         Iplus = I;
+        pT = 1; % same as pT before default
     end
-    %BW = imbinarize(Iplus);
-    %BW = imbinarize(Iplus,1.75*T); % for L03
-    BW = imbinarize(Iplus,.75*T); % original
-    % fill holes
-    BW = imfill(BW,'holes');
-    BW = bwareaopen(BW,minArea); % remove objects containing less than minArea pixels
-    % 10 iterations
+
+
+    BW = imbinarize(Iplus,pT*T);
+    %figure(9); imshow(I,[]); axis equal, hold on, visboundaries(BW,'Color','y'); hold off; drawnow;
+
+    % fill holes in the mask (expansion)
+    BW = imfill(BW,'holes');    
+    %figure(9); imshow(I,[]); axis equal, hold on, visboundaries(BW,'Color','y'); hold off; drawnow;
+
+    % remove small objects
+    BW = bwareaopen(BW,minArea); %
+    %figure(9); imshow(I,[]); axis equal, hold on, visboundaries(BW,'Color','y'); hold off; drawnow;
+
+    % 10 iterations of smoothing using activecontour
     BW = activecontour(Iplus,BW,10,'Chan-Vese','SmoothFactor',1,'ContractionBias',0);
-    % fills gaps
+     %figure(9); imshow(I,[]); axis equal, hold on, visboundaries(BW,'Color','y'); hold off; drawnow;
+
+    % fills gaps using dilation/erosion
     BW = imclose(BW,strel('disk',3,0));
+     %figure(9); imshow(I,[]); axis equal, hold on, visboundaries(BW,'Color','y'); hold off; drawnow;
+
+    % fill holes in the mask
     BW = imfill(BW,'holes');
+    %figure(9); imshow(I,[]); axis equal, hold on, visboundaries(BW,'Color','y'); hold off; drawnow;
+    
+    % remove small objects
     BW = bwareaopen(BW,minArea);
-    %figure(5); imshow(BW,[])
+    %figure(9); imshow(I,[]); axis equal, hold on, visboundaries(BW,'Color','y'); hold off; drawnow;
 end
 
 % function BW = segment(I,oBW,varargin)
@@ -803,12 +872,14 @@ end
 
 function choice = timeoutdlg(delay)
 
-    prompt='Manual over ride [y/n]?';
+    prompt='\fontsize{12} Manually adjust the segmentation [y/n]?';
     f1 = findall(0, 'Type', 'figure');
     t = timer('TimerFcn', {@closeit f1}, 'StartDelay', delay);
     start(t);
     % Call the dialog
-    retvals = inputdlg(prompt,'',1,{'n'});
+    opts.Interpreter = 'tex';
+    opts.Resize = 'on';
+    retvals = inputdlg(prompt,'',1,{'n'},opts);
     if numel(retvals) == 0
           choice = 'n';
     else
@@ -829,17 +900,38 @@ function choice = timeoutdlg(delay)
     end
 end
 
-function choice = secondtimeoutdlg(delay)
+function choice = secondtimeoutdlg(delay,fixFrameCommand)
 
-    prompt='draw shape [0 = rectangle, 1 = circle, 2 = polygon]';
+    prompt=['\fontsize{12} draw shape [0 = rectangle, 1 = circle, 2 = polygon];...' ...
+        'Region can be dragged and adjusted. Double click to finalize selection. Then hit any key to continue.'];
     f1 = findall(0, 'Type', 'figure');
     %delay;
     t = timer('TimerFcn', {@closeit f1}, 'StartDelay', delay);
     start(t);
     % Call the dialog
-    retvals = inputdlg(prompt,'',1,{'1'});
+    opts.Interpreter = 'tex';
+    opts.Resize = 'on';
+
+    %default set here
+    if strcmp(fixFrameCommand,'circle')
+    choice = '1';
+    elseif strcmp(fixFrameCommand,'rectangle')
+       choice = '0';
+    elseif strcmp(fixFrameCommand,'polygon')
+       choice = '2';
+    end
+
+    retvals = inputdlg(prompt,'',1,{choice},opts);
+
     if numel(retvals) == 0
-          choice = '1';
+       %default set here in case no inputs present
+       if strcmp(fixFrameCommand,'circle')
+        choice = '1';
+       elseif strcmp(fixFrameCommand,'rectangle')
+           choice = '0';
+       elseif strcmp(fixFrameCommand,'polygon')
+           choice = '2';
+       end
     else
           if strcmp(retvals{1},'0') 
               choice = 'rectangle';

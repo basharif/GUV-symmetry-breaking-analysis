@@ -4,53 +4,64 @@ close all
 warning('off','all')
 set(0,'DefaultFigureWindowStyle','normal') 
 set(0,'DefaultAxesTitleFontWeight','normal');
-set(0,'DefaultAxesFontName','Avenir')
+set(0,'DefaultAxesFontName','Arial')
 
-%% this data table defines the key settings
-Sguv = readtable('guv_settings.csv');
-runtype = 2; % 1: run just testing few frames
-            % 2: run full kymograph analysis on 1 or more GUVs
-            % 3: find and load previous data and just adjust plots
-            % 4: manually select file and adjust
-% name of output folder - ALWAYS HAVE BACKSLASH
-datatype = 'NOlumen_60plperp_SAVEALL_v2022-11-22/'; 
+%% IMPORTANT:
+% check all sections in the code marked by "**SETUP**" (search the code)
 
-% choose which guvs to analyze
-Gidx_analysis = [1:18];%1,5,9,12,13,15:17
-n_analysis = length(Gidx_analysis); % # of GUVs to be analyzed
-savefigs  = 2;   % save figures and movies
-            % 0 = no; 
-            % 1= mfiles,kymos,figs ; 
-            % 2 = 1 + dataRaw(images,other boundary quants etc)
+
+%% **SETUP** type of analysis
+runtype = 1; % 1: run kymograph analysis on a single target; can use just a few frames for quick checks
+             % 2: run full kymograph analysis on 1 or more targets from a table
+             % 3: find and load previous data and just adjust plots
+             % 4: manually select file and adjust
+
+savefigs  = 2;   % keep as 1 or 2 to save figures and movies
+             % 0 = no saving; 
+             % 1 = save mfiles,kymos,figs ; 
+             % 2 = same as 1 + save dataRaw(images,other boundary quants etc)
+
+ % part of the name of output folder - ALWAYS HAVE BACKSLASH
+ datatype = 'GUV_example_kymos_tseries/'; 
+
 %%
-if runtype == 1 % testing, no kymos
-%     guvname = 'G01';
-%     listFrames = 1:28;
-%     t_rapa = 7;
-%     nsize = 1;
-%     thetacenter = 0;
-    
-    % only single guv in gidx_analysis for testing
-    ii = Gidx_analysis(1);
-    guvname = Sguv.guvname{ii};
-    lastframe = Sguv.lastframe(ii);
-    listFrames = 1:lastframe;
-    t_rapa = Sguv.t_rapa(ii);
-    nsize = Sguv.nsize(ii);
-    thetacenter = Sguv.thetacenter(ii);
+if runtype == 1 
+    %% **SETUP** Option 1: Adjust these for analysis on single target  
+        targname = 'G01';
+        listFrames = 1:20; % frames to use for kymograph analysis
+        t_rapa = 7; % last frame before external input
+        nsize = 1; % controls inner/outer masks that determine membrane region of a target;
+                    % decrease for smaller targets, increase for larger; 
+                    % check the time-series of inner/outer masks using variable: do_plotMaskseries
+        thetacenter = 0; %  angle (degrees rel. to x-axis); a reference point to align center of kymograph e.g. for needle experiments
 
-    runall(runtype,datatype,guvname,t_rapa,thetacenter,listFrames,nsize,savefigs);
-elseif runtype == 2 % MAIN RUNS 
+    % NOTE: once the above settings are good, can save them in a table 
+    % see target_settings.csv which has 4 columns corresponding to above properties
+    % see runtype == 2 (next section) for running analysis from a table
+
+    runall(runtype,datatype,targname,t_rapa,thetacenter,listFrames,nsize,savefigs);
+
+elseif runtype == 2 
+    %% **SETUP** For analysis on multipe targets (cells, guvs, etc), use this table defining the key settings for each object
+
+    % read the table of target settings (.csv file)
+    Targ_set = readtable('target_settings.csv');
+        
+    % choose which targets to analyze
+    % these correspond to rows in the table
+    targ_idx_analysis = [1];%1,5,9,12,13,15:17
+    n_analysis = length(targ_idx_analysis); % # of targets to be analyzed
+    
     for i = 1:n_analysis 
         close all;
-        ii = Gidx_analysis(i);
-        guvname = Sguv.guvname{ii};
-        lastframe = Sguv.lastframe(ii);
+        ii = targ_idx_analysis(i);
+        targname = Targ_set.targname{ii};
+        lastframe = Targ_set.lastframe(ii);
         listFrames = 1:lastframe;
-        t_rapa = Sguv.t_rapa(ii);
-        nsize = Sguv.nsize(ii);
-        thetacenter = Sguv.thetacenter(ii);
-        runall(runtype,datatype,guvname,t_rapa,thetacenter,listFrames,nsize,savefigs);
+        t_rapa = Targ_set.t_rapa(ii);
+        nsize = Targ_set.nsize(ii);
+        thetacenter = Targ_set.thetacenter(ii);
+        runall(runtype,datatype,targname,t_rapa,thetacenter,listFrames,nsize,savefigs);
     end
 
 elseif runtype == 3 % load previously saved data
@@ -58,13 +69,13 @@ elseif runtype == 3 % load previously saved data
     % list of ALL folder
     Sfolds = dir('G*output'); % list of Global output folders
 
-    df_list = cell(n_analysis,1); % list of .mat files for SELECT GUVs
+    df_list = cell(n_analysis,1); % list of .mat files for SELECT target
     %df = cell(n_analysis,1); % variables in each .mat file 
     tstampnew = datestr(now,'dd_mmm_yyyy_HH_MM_SS');
 
     for i = 1:n_analysis
         close all;
-        tmpfolder = fullfile(Sfolds(Gidx_analysis(i)).name,datatype);
+        tmpfolder = fullfile(Sfolds(targ_idx_analysis(i)).name,datatype);
         tmpfile = dir([tmpfolder,'*.mat']);
         df_list{i} = fullfile(tmpfolder,tmpfile.name);
         load(df_list{i},'dataRaw','dataParams','dataKymoBin','dataKymoVar');
@@ -84,7 +95,7 @@ elseif runtype == 3 % load previously saved data
         % plot movies and save only based on the first kymograph set (fixedpts or fixedtheta usually)
         plottseries(dataParams,dataRaw,makekymo,tmpKymo,kf(1));
 
-        %% ADJUST FONT SIZE
+        % ADJUST FONT SIZE
 %         tstampnewtext =  strcat(tstampnew,'_FONT14');
 %         dataParams.tstamp1 = tstampnewtext;
 % 
@@ -95,13 +106,13 @@ elseif runtype == 3 % load previously saved data
 %         adjvar(1) = plotphyskymos(dataParams,dataKymoVar,kf(2),count);
 %         adjvar(2) = plotbiochemkymos(dataParams,dataKymoVar,kf(2),count);
 %         if savefigs > 0
-%             %savefig(f01,strcat(dataParams.outputfolder,dataParams.guvname,'_',tstampnewtext,'_NEW_macrosummary.fig'),'compact');
-%             savefig(adjfix,strcat(dataParams.outputfolder,dataParams.guvname,'_',tstampnewtext,'_figsoutFix.fig'),'compact');
-%             savefig(adjvar,strcat(dataParams.outputfolder,dataParams.guvname,'_',tstampnewtext,'_figsoutVar.fig'),'compact');
+%             %savefig(f01,strcat(dataParams.outputfolder,dataParams.cellname,'_',tstampnewtext,'_NEW_macrosummary.fig'),'compact');
+%             savefig(adjfix,strcat(dataParams.outputfolder,dataParams.cellname,'_',tstampnewtext,'_figsoutFix.fig'),'compact');
+%             savefig(adjvar,strcat(dataParams.outputfolder,dataParams.cellname,'_',tstampnewtext,'_figsoutVar.fig'),'compact');
 %         end
 
 
-        %% ADJUST BINARIZATION FOR PATTERN VISUALIZATION
+        % ADJUST BINARIZATION FOR PATTERN VISUALIZATION
 %         % adjust time stamp to include adjustment
 %         tstampnewtext =  strcat(tstampnew,'_PATTERNS');
 %         dataParams.tstamp1 = tstampnewtext;
@@ -119,7 +130,7 @@ elseif runtype == 3 % load previously saved data
 %         ncrv = length(scrv);
 %         crvthresh = scrv(round((0.10)*ncrv)); % top 20%
 % 
-%         kactin1 = (kactin>=actinthresh); % threshold value different for each GUV
+%         kactin1 = (kactin>=actinthresh); % threshold value different for each target
 %         kcurv1 = (abs(kcurv)>=crvthresh);
 %         %figure; imagesc(kactin1);
 % 
@@ -145,7 +156,7 @@ elseif runtype == 3 % load previously saved data
 %         kactinvar = dataKymoVar.kymofluor{2}; % actin
 %         kcurvvar = dataKymoVar.kymocurv;
 % 
-%         kactinvar1 = (kactinvar>=actinthresh)&(~isnan(kactinvar)); % threshold value different for each GUV
+%         kactinvar1 = (kactinvar>=actinthresh)&(~isnan(kactinvar)); % threshold value different for each target
 %         kcurvvar1 = (abs(kcurvvar)>=crvthresh)&(~isnan(kcurvvar));
 %         %figure; imagesc(kactin1);
 % 
@@ -172,9 +183,9 @@ elseif runtype == 3 % load previously saved data
 % %         colormap(ax,clrs);
 % %         colorbar
 %         if savefigs > 0
-%             %savefig(f01,strcat(dataParams.outputfolder,dataParams.guvname,'_',tstampnewtext,'_NEW_macrosummary.fig'),'compact');
-%             savefig(figsoutFix,strcat(dataParams.outputfolder,dataParams.guvname,'_',tstampnewtext,'_figsoutFix.fig'),'compact');
-%             savefig(figsoutVar,strcat(dataParams.outputfolder,dataParams.guvname,'_',tstampnewtext,'_figsoutVar.fig'),'compact');
+%             %savefig(f01,strcat(dataParams.outputfolder,dataParams.targname,'_',tstampnewtext,'_NEW_macrosummary.fig'),'compact');
+%             savefig(figsoutFix,strcat(dataParams.outputfolder,dataParams.targname,'_',tstampnewtext,'_figsoutFix.fig'),'compact');
+%             savefig(figsoutVar,strcat(dataParams.outputfolder,dataParams.targname,'_',tstampnewtext,'_figsoutVar.fig'),'compact');
 %         end
 
 
@@ -200,9 +211,9 @@ elseif runtype == 4 % chose manually
 %     f01 = plotmovement(dataParams,dataRaw);
 % 
 %     if savefigs == 2
-%         savefig(f01,strcat(dataParams.outputfolder,dataParams.guvname,'_',tstampnew,'_NEW_macrosummary.fig'),'compact');
+%         savefig(f01,strcat(dataParams.outputfolder,dataParams.targname,'_',tstampnew,'_NEW_macrosummary.fig'),'compact');
 %     elseif savefigs == 1
-%         savefig(f01,strcat(dataParams.outputfolder,dataParams.guvname,'_',tstampnew,'_NEW_macrosummary.fig'),'compact');
+%         savefig(f01,strcat(dataParams.outputfolder,dataParams.targname,'_',tstampnew,'_NEW_macrosummary.fig'),'compact');
 %     end
 
 
@@ -211,92 +222,118 @@ end
 
 
 
-function runall(runtype,datatype,guvname,t_rapa,thetacenter,listFrames,nsize,savefigs)
+function runall(runtype,datatype,targname,t_rapa,thetacenter,listFrames,nsize,savefigs)
 %--------------------------------------------------------------------------  
 % SET ITYPE IN INTERPBOUNDARY! 'pchip' or 'makima'
 % SET HOW FLUOR INTENSITIES ARE COMPUTED!
 % SET kymograph smoothing window
-% guvname         = 'G09';
+% targname         = 'G09';
 % t_rapa          = 7;       % last frame before rapamycin added, approx = time 0 for recruitment
 % thetacenter    = 0;      % angle (degrees rel. to x-axis) reference point to align center of kymograph
 % listFrames      = [1:74];   % choose frames (not necessarily consecutive) to include in analysis, in ascending order
 % %IMPORTANT FOR SETTING SIZE OF INNER OUTER MASKS!!!
-% if strcmp(guvname(1),"G"); nsize = 0.7; % 1 for G01, 
+% if strcmp(targname(1),"G"); nsize = 0.7; % 1 for G01, 
 % else; nsize = 3; % 3 for L48, check tseries inner/outer masks 
 % end
 
-%
-m0      = 3;   % boundary points per pixel; will multiply perimeter, used in pre-computation interp
-m1      = 6; % muliple of perimeter, post-computation interp - needed for small guvs to get 301 spatial bins
-% 
-basystem = 'mac';
-kymofixed = [2 0];  
-    % 0: varying points;
-    % 1: fixedpts:  use fixed # of points for 2nd kymograph (= # pts in longest perim, post-interp)
-    % 2: fixedtheta:  % use fixed # of angles for 2nd kymograph
-nbins   = 360; % ODD # of bins to use if kymofixedpts or kymofixedtheta
-pvary   = 3; % multiple of perimeter for final interpolation of varying kymo
-    % ODD ensures needle angle will be captured in 1 bin at center
-% 0/1 or true/false: 
-do_plotAlignseries   = 0;  % display boundary, centroid, kymo center point
-do_plotTimeseries    = 0;    % display MAIN time series : FLUORESC
-do_plotMaskseries    = 0;    % plot inner, outer mask time series
+%% **SETUP** most settings can stay constant; 
+% adjust the PLOTTING OPTIONS section to control number of plots
+
+% PLOTTING OPTIONS: 0/false or 1/true
+do_plotAlignseries   = 1;  % display boundary, centroid, kymo center point
+do_plotTimeseries    = 1;    % display MAIN time series : FLUORESC
+do_plotMaskseries    = 1;    % plot inner, outer mask time series
 do_plotBoundaryOverlay = 0; % separate plot of boundary overlay over time 
-% more defaults 0/1 here
-plperp              = 0.6; % 60% outward from inner line for intensity computation
-do_top3px             = 0; % use only top 3 px for fluor intensity
-do_membnorm         = 0; % divide biochem signals by membrane channel
-do_fixedbox          = 1;  % in summary fig, plot with fixed box size for centroid and boundary evolution
-do_plotVelseries     = 0;   % very slow - plotting displacements with velocity in color
-do_plotEllipseries   = 0;  % plot bounding ellipse 
+do_fixedbox          = 0;  % in summary fig, plot with fixed box size for centroid and boundary evolution
+do_plotVelseries_pdist2     = 0;   % keep 0; slower and less accurate; displacements with velocity in color (pdist2 based)
+do_plotVelseries_motiontrack = 1; % plotting displacements with velocity in color (more accurate, motion-track based)
+do_plotEllipseries   = 1;  % plot bounding ellipse ; if = 1, do_aspratio_ind must = 1
 do_aspratio_ind     = 1;  % 1 = do independent asp ratio computation, 
                           % 0 = use matlab region props maj/min axis to compute aspect ratio
-veltrack1             = 1; % compute velocity using motion tracking (1) or pdist2 (0) for fixed kymo
-veltrack2             = 0; % compute velocity using motion tracking (1) or pdist2 (0) for variable kymo
+
+% more detailed settings below:                      
+basystem = 'mac';
+kymofixed = [2,0];  
+    % options for the two kymographs generated; first number is for the 1st kymo, etc
+    % for first kymograph
+    % 1: fixedpts:  use fixed # of boundary/perimeter points for 1st kymograph (= # pts in longest perim, post-interp)
+    % 2: fixedtheta:  % use fixed # of angular bins for 1st kymograph
+    % for second kymograph - always use 0 (varying number of boundary points)
+    % 0: kymograph with varying number of boundary points - useful for checking cells/guvs that change size;
+
+nbins   = 360; % # of bins to use for 1st kymo ( kymofixedpts or kymofixedtheta)
+pvary   = 3; % multiple of perimeter for final interpolation of varying kymo
+
+m0      = 3; % boundary points per pixel; will multiply perimeter, used in pre-computation interp
+m1      = 6; % muliple of perimeter, post-computation interp - needed for small targets to get enough spatial bins
+
+% see getIntensity function for how intensity at the membrane is computed
+% an inner and outer boundary is determined for the boundary of the target
+plperp     = 0.6; % 60% outward from line perpendicular to boundary (from inner towards outer boundary) for intensity computation
+do_top3px  = 0; % (set this to 0 to use the mean; or 1 to use only top 3 px for fluor intensity)
+do_lumennorm = 0; % 0/false, or 1/true: divide biochem signals by lumen signal (use 0 usually)
+do_membnorm = 0; % 0/false, or 1/true: divide biochem signals by membrane marker signal (use 0 usually)
+
+veltrack1  = 1; % compute velocity using motion tracking (1) or pdist2 (0) for fixed kymo
+veltrack2  = 1; % compute velocity using motion tracking (1) or pdist2 (0) for variable kymo
     % alignvel will be based on whatever is chosen here. bdyvel is still pdist2 based
-% Select curvature calculation method
-computecurv     = 2; % 1 for circumcenter; 2 for fitcircle
-% Select smoothing
+
+% ---Select curvature calculation method
+computecurv = 2; % 1 for circumcenter; 2 for fitcircle
+
+% ----Select smoothing
 savgolay_smooth = true;  % do savitzky-golay smoothing of boundary for curvature estimates
-darc           = 15;  % distance (pixels) of arc segment used for savgolay 
-darc2          = 15;  % distance (pixels) of arc segment used for curvature computation
+darc      = 15;  % distance (pixels) of arc segment used for savgolay 
+darc2     = 15;  % distance (pixels) of arc segment used for curvature computation
 % parc           = 0.05;  % prop of perimeter: arc segment used for savgolay 
 % parc2          = 0.05;  % prop of perimeter: arc segment used for curvature computation
-do_movavg     = 0; % do moving average
-s_movavg      = 2*m1; % if do_movavg, use this for # of points right/left 
+do_movavg  = 0; % 0/false, or 1/true: do moving average
+s_movavg   = 2*m1; % if do_movavg, use this for # of points right/left 
+
 %------------------------------------------
-minfont = 18;
+minfont = 20;
 sat = 1; % factor for caxis upper limit fluor signals
 satlow = 0; % factor for caxis lower limit of fluor signal
 
+
+%% **SETUP** Fluorescent marker labels and Folder settings 
 %--------------------------------
-inputfolder     = strcat(guvname,'_input/',guvname,'_acs/');
+% make sure this matches where the tiff files for the smoothed images and
+% masks are located
+inputfolder     = strcat(targname,'_input/',targname,'_acs_v0/');
 %---------------------
 if runtype == 1
 makekymo     = 1;    % create kymograph
-outputfolder    = strcat(guvname,'_testout/',datatype); % name of output folder
+outputfolder    = strcat(targname,'_singlerun_output/',datatype); % name of output folder
 elseif runtype == 2
 makekymo     = 1;    % Create kymograph
-outputfolder    = strcat(guvname,'_output/',datatype); % name of output folder    
+outputfolder    = strcat(targname,'_tablerun_output/',datatype); % name of output folder    
 else % only re-runs
 makekymo    = 0;    % No kymograph
-outputfolder    = strcat(guvname,'_output/',dataype); 
+outputfolder    = strcat(targname,'_output/',dataype); 
 end
-if strcmp(guvname(1),'L')
-    fname1          = strcat(guvname,'_mCh_memb'); % membrane marker file name
-    fname2          = strcat(guvname,'_YFP_actin'); % actin marker file name
-    fname3          = strcat(guvname,'_CFP_ActA');
-    fname4          = strcat(guvname,'_BF');
-    fname5          = strcat(guvname,'_647_dye');
-    fnames          = {fname1;fname2;fname3;fname4;fname5};
-    needlech            = 4 ; % BF channel for needle
-elseif strcmp(guvname(1),'G')
-    fname1          = strcat(guvname,'_mCh_memb'); % membrane marker file name
-    fname2          = strcat(guvname,'_YFP_actin'); % actin marker file name
-    fname3          = strcat(guvname,'_CFP_ActA');
-    fnames          = {fname1;fname2;fname3};
-end
-maskfname       = strcat(guvname,'_mask');
+
+% % name of files in the input folder - label fluor channels 
+fname1          = strcat(targname,'_mCh_memb'); % membrane marker file name
+fname2          = strcat(targname,'_YFP_actin'); % actin marker file name
+fname3          = strcat(targname,'_CFP_ActA');
+fnames          = {fname1;fname2;fname3};
+% if strcmp(targname(1),'L')
+%     fname1          = strcat(targname,'_mCh_memb'); % membrane marker file name
+%     fname2          = strcat(targname,'_YFP_actin'); % actin marker file name
+%     fname3          = strcat(targname,'_CFP_ActA');
+%     fname4          = strcat(targname,'_BF');
+%     fname5          = strcat(targname,'_647_dye');
+%     fnames          = {fname1;fname2;fname3;fname4;fname5};
+%     needlech            = 4 ; % BF channel for needle
+% elseif strcmp(targname(1),'G')
+%     fname1          = strcat(targname,'_mCh_memb'); % membrane marker file name
+%     fname2          = strcat(targname,'_YFP_actin'); % actin marker file name
+%     fname3          = strcat(targname,'_CFP_ActA');
+%     fnames          = {fname1;fname2;fname3};
+% end
+
+maskfname       = strcat(targname,'_mask_inclusion');
 membch       = 1 ; % channel of membrane marker
 fluorch         = [1:3]; % membrane 1, actin 2, ActA 3;
 nfluor          = length(fluorch);
@@ -372,7 +409,7 @@ allEccents     = zeros(nframes,1);    %Eccentricity
 allMajAxL      = zeros(nframes,1);                   % Major axis length
 allLengths     = zeros(nframes,1);                   % Length of boundaries
 allPerims      = zeros(nframes,1);
-allAreas       = zeros(nframes,1);                   % Cell areas, all frames
+allAreas       = zeros(nframes,1);                   % target areas, all frames
 allBW          = zeros(rows,cols,nframes,'logical'); % Segmentation all frames - only based on 1 channel
 
 
@@ -491,9 +528,9 @@ for i = 1:nframes
         % Get displacement between old boundary and new boundary over 1 frame
         % (row,col) coordinates (y,x)
         % dt = 1 so it's same as displacements
-        pVel = v2struct(do_plotVelseries,savefigs,movieFrame,im0,outputfolder,...
-            guvname,tstamp1);
-        [vel,idx] = getvelocities(Borigs,oBorigs,dt,pVel,allIrgb{frame,membch});    
+        pVel = v2struct(do_plotVelseries_pdist2,savefigs,movieFrame,im0,outputfolder,...
+            targname,tstamp1,minfont);
+        [vel,idx] = velocity_pdist2(Borigs,oBorigs,dt,pVel,allIrgb{frame,membch});    
         dcumul = dcumul(idx) + dt*vel;
         %velold = vel;
     else
@@ -506,7 +543,7 @@ for i = 1:nframes
     % At the ith frame
     Iinit_curr = Iinit(frame,:); % cell array of all channels at current frame
 
-    pFluor = v2struct(centroid,movieFrame,im0,imL,do_plotTimeseries,do_membnorm,do_top3px,savefigs,outputfolder,...
+    pFluor = v2struct(centroid,movieFrame,im0,imL,do_plotTimeseries,do_lumennorm,do_membnorm,do_top3px,savefigs,outputfolder,...
         tstamp1,fnames,fluorch,nfluor,nchannels,nsize,plperp,bits);
     [fluor,iBW,oBW,inner,outer] = getIntensity(Borigs,Iinit_curr,BW,pFluor); % get actin intensity +/- boundary 
 
@@ -712,17 +749,17 @@ if makekymo
     end
 
     if savefigs == 2
-        save(strcat(outputfolder,guvname,'_',tstamp1,'_data'),'dataRaw','dataParams',...
+        save(strcat(outputfolder,targname,'_',tstamp1,'_data'),'dataRaw','dataParams',...
             'dataKymoBin','dataKymoVar')
-        savefig(figsout0,strcat(outputfolder,guvname,'_',tstamp1,'_figsout0.fig'),'compact');
-        savefig(figsoutFix,strcat(outputfolder,guvname,'_',tstamp1,'_figsoutFix.fig'),'compact');
-        savefig(figsoutVar,strcat(outputfolder,guvname,'_',tstamp1,'_figsoutVar.fig'),'compact');
+        savefig(figsout0,strcat(outputfolder,targname,'_',tstamp1,'_figsout0.fig'),'compact');
+        savefig(figsoutFix,strcat(outputfolder,targname,'_',tstamp1,'_figsoutFix.fig'),'compact');
+        savefig(figsoutVar,strcat(outputfolder,targname,'_',tstamp1,'_figsoutVar.fig'),'compact');
     elseif savefigs == 1
-        save(strcat(outputfolder,guvname,'_',tstamp1,'_data'),'dataParams',...
+        save(strcat(outputfolder,targname,'_',tstamp1,'_data'),'dataParams',...
             'dataKymoBin','dataKymoVar');
-        savefig(figsout0,strcat(outputfolder,guvname,'_',tstamp1,'_figsout0.fig'),'compact');
-        savefig(figsoutFix,strcat(outputfolder,guvname,'_',tstamp1,'_figsoutFix.fig'),'compact');
-        savefig(figsoutVar,strcat(outputfolder,guvname,'_',tstamp1,'_figsoutVar.fig'),'compact');
+        savefig(figsout0,strcat(outputfolder,targname,'_',tstamp1,'_figsout0.fig'),'compact');
+        savefig(figsoutFix,strcat(outputfolder,targname,'_',tstamp1,'_figsoutFix.fig'),'compact');
+        savefig(figsoutVar,strcat(outputfolder,targname,'_',tstamp1,'_figsoutVar.fig'),'compact');
     end
 
 else
@@ -730,11 +767,11 @@ else
     plottseries(dataParams,dataRaw,makekymo);
     figsout0 = plotmovement(dataParams,dataRaw);
     if savefigs == 2
-        save(strcat(outputfolder,guvname,'_',tstamp1,'_data'),'dataRaw','dataParams');
-        savefig(figsout0,strcat(outputfolder,guvname,'_',tstamp1,'_figsout0.fig'),'compact');
+        save(strcat(outputfolder,targname,'_',tstamp1,'_data'),'dataRaw','dataParams');
+        savefig(figsout0,strcat(outputfolder,targname,'_',tstamp1,'_figsout0.fig'),'compact');
     elseif savefigs == 1
-        save(strcat(outputfolder,guvname,'_',tstamp1,'_data'),'dataParams'); 
-        savefig(figsout0,strcat(outputfolder,guvname,'_',tstamp1,'_figsout0.fig'),'compact');
+        save(strcat(outputfolder,targname,'_',tstamp1,'_data'),'dataParams'); 
+        savefig(figsout0,strcat(outputfolder,targname,'_',tstamp1,'_figsout0.fig'),'compact');
     end
 end
 
@@ -755,7 +792,7 @@ listFrames = dataParams.listFrames;
 fnames  = dataParams.fnames; % name of channels
 membch = dataParams.membch;
 fluorch = dataParams.fluorch;
-guvname = dataParams.guvname;
+targname = dataParams.targname;
 savgolay_smooth = dataParams.savgolay_smooth;
 computecurv = dataParams.computecurv;
 im0    = dataParams.im0;
@@ -820,7 +857,7 @@ if do_plotEllipseries
         disp('No bounding ellipse available: turn do_aspratio_ind ON for independent aspect ratios with A0 and A0c')
     else
         pause(0.1)
-    %    fname = strcat(outputfolder,guvname,'_',tstamp1,'_bounding_ellipse');
+    %    fname = strcat(outputfolder,targname,'_',tstamp1,'_bounding_ellipse');
     %     if strcmp('linux',basystem)
     %         v = VideoWriter(fname,'Motion JPEG AVI');
     %     else
@@ -830,6 +867,9 @@ if do_plotEllipseries
     %     v.FrameRate = 5; %playback framerate
     %     open(v);
     
+        f34 = figure(34);
+        tiledlayout(2,2,'TileSpacing','compact','Padding','compact');
+        f34.Position(3:4) = [300, 300];
         for j = 1:nframes
             movieFrame=listFrames(j); %im0:imL;  % TIFF indices
             tmpIrgb = allIrgb{j,membch};
@@ -841,11 +881,13 @@ if do_plotEllipseries
             bxraw = bdyraw(:,2);
             xpts = [bxraw,byraw];
     
-            f24 = figure(24);
+
+            nexttile(1,[2,2]);
             imshow(tmpIrgb); axis equal; hold on;
             plot(xpts(:,1),xpts(:,2),'r','LineWidth',3); 
             FontSize = minfont; %min(minfont,floor(min(cols,rows)/10));
             text(6,6,num2str(movieFrame),'Color','white','FontSize',FontSize)
+            title('Bounding ellipse used for eccentricity','FontSize',FontSize)
         
             %set(gca,'YDir','reverse');
               
@@ -853,15 +895,15 @@ if do_plotEllipseries
     
             hold off;
             drawnow
-    
+            
             % save as tiff series
             if savefigs > 0
-                pause(0.05)
-                F24 = getframe(f24);
+                %pause(0.05)
+                F34 = getframe(f34);
                 if movieFrame == im0
-                    imwrite(F24.cdata,strcat(outputfolder,guvname,'_',tstamp1,'_bounding_ellipse.tif'));
+                    imwrite(F34.cdata,strcat(outputfolder,targname,'_',tstamp1,'_bounding_ellipse.tif'));
                 else
-                    imwrite(F24.cdata,strcat(outputfolder,guvname,'_',tstamp1,'_bounding_ellipse.tif'),...
+                    imwrite(F34.cdata,strcat(outputfolder,targname,'_',tstamp1,'_bounding_ellipse.tif'),...
                     'WriteMode','append');
                 end
             end
@@ -870,7 +912,7 @@ if do_plotEllipseries
     
         end
         %close(v);
-        close (f24);
+        %close (f34);
     end
 end
 
@@ -881,13 +923,16 @@ if do_plotAlignseries
     for j = 1:nframes         % indices for arrays
         movieFrame=listFrames(j); %im0:imL;  % TIFF indices
         f60 = figure(60); 
-
+        tiledlayout(2,2,'TileSpacing','compact','Padding','compact');
+        f60.Position(3:4) = [400, 400];
+        nexttile(1,[2,2]);
         tmpbdy = alignbdy{j};
         tmpI1rgb = allIrgb{j,membch};
         x0 = cent(j,1); y0 = cent(j,2);
-        imshow(tmpI1rgb); axis equal; hold on; 
+        imshow(tmpI1rgb); axis equal; 
+        hold on; 
         ax60 = plot(x0,y0,'m*','MarkerSize',12,'LineWidth',3);
-        ax60.Parent.Title.String = strcat(guvname,{' '},'tracking reference angle (center of kymograph)');
+        ax60.Parent.Title.String = strcat(targname,{' '},'tracking ref. angle and center)');
         FontSize = minfont; %min(minfont,floor(min(cols,rows)/10));
         text(6,6,num2str(movieFrame),'Color','white','FontSize',FontSize)
         %plot(tmpbdy(:,2),tmpbdy(:,1),'ro','MarkerSize',10); 
@@ -897,24 +942,24 @@ if do_plotAlignseries
         midpoint = round(length(tmpbdy)/2);
         plot(tmpbdy(midpoint,2),tmpbdy(midpoint,1),'c*','MarkerSize',12,'LineWidth',3);  
 
-
+        
         hold off;
         drawnow
 
 
         % save as tiff series
         if savefigs > 0
-            pause(0.05)
+            %pause(0.05)
             F60 = getframe(f60);
             if movieFrame == im0
-                imwrite(F60.cdata,strcat(outputfolder,guvname,'_',tstamp1,'_tseries_align.tif'));
+                imwrite(F60.cdata,strcat(outputfolder,targname,'_',tstamp1,'_tseries_align.tif'));
             else
-                imwrite(F60.cdata,strcat(outputfolder,guvname,'_',tstamp1,'_tseries_align.tif'),...
+                imwrite(F60.cdata,strcat(outputfolder,targname,'_',tstamp1,'_tseries_align.tif'),...
                 'WriteMode','append');
             end
         end
     end
-    close (f60);
+    %close(f60);
 end % end of plot alignseries
 
     %% timeseries tiff main boundary measurements
@@ -946,59 +991,52 @@ if do_plotTimeseries && makekymo
     curvcax = [-curvmax,curvmax];
 
 
-    %fluor quantitites panel
-    flnames = {'membrane marker';'actin';'ActA'};
+    %biophysical quantitites panel
+    bio_panel = {'membrane-marker';'actin';'ActA'};
 
-    phnames = {'velocity';'cuvature';'cumulative disp.'};
+    phys_panel = {'velocity';'cumulative-disp.';'curvature'};
 
-    figpan = struct('names',{flnames(:),phnames(:)},...
-        'vals',{{alignfluor},{alignvel;aligndcumul;aligncurv}},...
-        'caxes',{fluorcax(:),{velcax;dccax;curvcax}});
+    % fields: name of panel, signal values, color axes, background image
+    % each row is a different figure 
+    multifig = struct('names',{bio_panel(:),phys_panel(:)},...
+        'vals',{alignfluor,[alignvel,aligndcumul,aligncurv]},...
+        'caxes',{fluorcax(:),{velcax;dccax;curvcax}},...
+        'images',{allIrgb,[allIrgb(:,membch),allIrgb(:,membch),allIrgb(:,membch)]});
 
     
     % now plot multi-panel time series together
-    for k = 1:length(figpan)       
+    for k = 1:length(multifig)       
 
 
 
         for j = 1:nframes         % indices for arrays
             movieFrame=listFrames(j); %im0:imL;  % TIFF indices
-            tmpI1rgb = allIrgb{j,membch};
-            
-            tmpbdy = alignbdy{j};
-            tmpvel = alignvel{j};
-            tmpdc = aligndcumul{j};
-            tmpcurv = aligncurv{j};
+            %tmpI1rgb = allIrgb{j,:};
+            tmpI1pan = multifig(k); % kth element of structure array is kth figure
+            %tmpbdy = alignbdy{j};
+            fignum = k+70; % figure numbers must not overlap
+            currFrame = j; % current Frame
 
-            tmpfluor = alignfluor{j,k};
-            tmpI2rgb = allIrgb{j,k};
-            fignum = 2;
+            % tmpvel = alignvel{j};
+            % tmpdc = aligndcumul{j};
+            % tmpcurv = aligncurv{j};
+            % 
+            % tmpfluor = alignfluor{j,k};
+            % tmpI2rgb = allIrgb{j,k};
 
-            f2vars = v2struct(savgolay_smooth,computecurv,movieFrame,panelnames,panelcaxes,tmpbdy);
-            f2 = displaymultipanel(fignum,f2vars,tmpI1rgb,tmpI1pan);
-%             if k == 2 && movieFrame==im0  % only for actin show triple time series
-%                 % plot
-%                 f2vars = v2struct(savgolay_smooth,computecurv,movieFrame,panelnames,minfont,velcax,curvcax,panelcaxes);
-%                 f2 = displaymultipanel(tmpI1rgb,tmpI2rgb,f2vars,tmpbdy,tmpcurv,tmpfluor);
-%             elseif k == 2 && movieFrame > im0 % velocities available
-%                 % then plot  
-%                 f2vars = v2struct(savgolay_smooth,computecurv,movieFrame,panelnames,minfont,velcax,curvcax,panelcaxes);
-%                 f2 = displaymultipanel(tmpI1rgb,tmpI2rgb,f2vars,tmpbdy,tmpcurv,tmpfluor,tmpvel);
-%             else % for other fluor channels, just show the intensity around boundary 
-%                 f2vars = v2struct(savgolay_smooth,computecurv,movieFrame,panelnames,minfont,velcax,curvcax,panelcaxes);
-%                 f2 = displaymultipanel(tmpI1rgb,tmpI2rgb,f2vars,tmpbdy,tmpfluor);
-%             end
-%            
-    
+
+            f2vars = v2struct(savgolay_smooth,computecurv,minfont,membch);
+            f2 = displaymultipanel(fignum,f2vars,alignbdy,tmpI1pan,currFrame,movieFrame);
+
        
             if savefigs > 0 % create tiff series
                 %pause(0.05)
                 F2 = getframe(f2);
     
                 if movieFrame == im0
-                    imwrite(F2.cdata,strcat(outputfolder,guvname,'_',tstamp1,'_tseries_main_',fnames{k}(5:end),'.tif'));
+                    imwrite(F2.cdata,strcat(outputfolder,targname,'_',tstamp1,'_tseries_main_',cat(2,multifig(k).names{:}),'.tif'));
                 else
-                    imwrite(F2.cdata,strcat(outputfolder,guvname,'_',tstamp1,'_tseries_main_',fnames{k}(5:end),'.tif'),...
+                    imwrite(F2.cdata,strcat(outputfolder,targname,'_',tstamp1,'_tseries_main_',cat(2,multifig(k).names{:}),'.tif'),...
                         'WriteMode','append');
                 end
             end
@@ -1061,9 +1099,9 @@ if do_plotMaskseries
                 %pause(0.05)
                 F8 = getframe(f8); 
                 if movieFrame == im0
-                    imwrite(F8.cdata,strcat(outputfolder,guvname,'_',tstamp1,'_tseries_mask_',fnames{k}(5:end),'.tif'));
+                    imwrite(F8.cdata,strcat(outputfolder,targname,'_',tstamp1,'_tseries_mask_',fnames{k}(5:end),'.tif'));
                 else
-                    imwrite(F8.cdata,strcat(outputfolder,guvname,'_',tstamp1,'_tseries_mask_',fnames{k}(5:end),'.tif'),...
+                    imwrite(F8.cdata,strcat(outputfolder,targname,'_',tstamp1,'_tseries_mask_',fnames{k}(5:end),'.tif'),...
                         'WriteMode','append');
                 end
             end
@@ -1087,7 +1125,7 @@ listFrames = dataParams.listFrames;
 fnames  = dataParams.fnames; % name of channels
 membch = dataParams.membch;
 fluorch = dataParams.fluorch;
-guvname = dataParams.guvname;
+targname = dataParams.targname;
 savgolay_smooth = dataParams.savgolay_smooth;
 computecurv = dataParams.computecurv;
 im0    = dataParams.im0;
@@ -1145,7 +1183,7 @@ xlinec = [0.1 0.1 0.1];
 
     hold on
     xline(t_rapa+0.5,'LineWidth',3,'Color',xlinec,'LineStyle','--');
-    if guvname(1) == 'L'
+    if targname(1) == 'L'
         if kf == 2 %fixedtheta
             plot(im0-0.5,0,'r>','MarkerSize',8,'MarkerFaceColor',[1 0.5 0]);
         elseif kf == 1 %fixedpoints
@@ -1206,7 +1244,7 @@ xlinec = [0.1 0.1 0.1];
     
     hold on
     xline(t_rapa+0.5,'LineWidth',3,'Color',xlinec,'LineStyle','--');
-    if guvname(1) == 'L'
+    if targname(1) == 'L'
         if kf == 2 %fixedtheta
             plot(im0-0.5,0,'r>','MarkerSize',8,'MarkerFaceColor',[1 0.5 0]);
         elseif kf == 1 %fixedpoints
@@ -1270,7 +1308,7 @@ xlinec = [0.1 0.1 0.1];
     
     hold on
     xline(t_rapa+0.5,'LineWidth',3,'Color',xlinec,'LineStyle','--');
-    if guvname(1) == 'L'
+    if targname(1) == 'L'
         if kf == 2 %fixedtheta
             plot(im0-0.5,0,'r>','MarkerSize',8,'MarkerFaceColor',[1 0.5 0]);
         elseif kf == 1 %fixedpoints
@@ -1308,7 +1346,7 @@ xlinec = [0.1 0.1 0.1];
     %
 
 
-    title(t2,[guvname,': physical kymographs']);
+    title(t2,[targname,': physical kymographs']);
 
         % adjust the figure positions 
     %[left bottom width height]
@@ -1322,9 +1360,9 @@ xlinec = [0.1 0.1 0.1];
     %figsout = v2struct(f12);
     figsout = f12;
     if savefigs>0 && kf>0
-    print(f12,strcat(outputfolder,guvname,'_',tstamp1,'_fig_physkymos_Fix'),'-dpng')
+    print(f12,strcat(outputfolder,targname,'_',tstamp1,'_fig_physkymos_Fix'),'-dpng')
     elseif savefigs>0 && kf==0
-    print(f12,strcat(outputfolder,guvname,'_',tstamp1,'_fig_physkymos_Var'),'-dpng')
+    print(f12,strcat(outputfolder,targname,'_',tstamp1,'_fig_physkymos_Var'),'-dpng')
 
     end
 
@@ -1340,7 +1378,7 @@ listFrames = dataParams.listFrames;
 fnames  = dataParams.fnames; % name of channels
 membch = dataParams.membch;
 fluorch = dataParams.fluorch;
-guvname = dataParams.guvname;
+targname = dataParams.targname;
 savgolay_smooth = dataParams.savgolay_smooth;
 computecurv = dataParams.computecurv;
 im0    = dataParams.im0;
@@ -1397,7 +1435,7 @@ xlinec = [0.1 0.1 0.1];
     
     hold on
     xline(t_rapa+0.5,'LineWidth',3,'Color',xlinec,'LineStyle','--');
-    if guvname(1) == 'L'
+    if targname(1) == 'L'
         if kf == 2 %fixedtheta
             plot(im0-0.5,0,'r>','MarkerSize',8,'MarkerFaceColor',[1 0.5 0]);
         elseif kf == 1 %fixedpoints
@@ -1449,7 +1487,7 @@ xlinec = [0.1 0.1 0.1];
     
     hold on
     xline(t_rapa+0.5,'LineWidth',3,'Color',xlinec,'LineStyle','--');
-    if guvname(1) == 'L'
+    if targname(1) == 'L'
         if kf == 2 %fixedtheta
             plot(im0-0.5,0,'r>','MarkerSize',8,'MarkerFaceColor',[1 0.5 0]);
         elseif kf == 1 %fixedpoints
@@ -1516,7 +1554,7 @@ xlinec = [0.1 0.1 0.1];
     
     hold on
     xline(t_rapa+0.5,'LineWidth',3,'Color',xlinec,'LineStyle','--');
-    if guvname(1) == 'L'
+    if targname(1) == 'L'
         if kf == 2 %fixedtheta
             plot(im0-0.5,0,'r>','MarkerSize',8,'MarkerFaceColor',[1 0.5 0]);
         elseif kf == 1 %fixedpoints
@@ -1548,9 +1586,9 @@ xlinec = [0.1 0.1 0.1];
 
 
 %     
-%     title(t2,[guvname,': biochemical kymographs (top ',num2str(100*(1-sat)),...
+%     title(t2,[targname,': biochemical kymographs (top ',num2str(100*(1-sat)),...
 %         '% sat.)']);
-    title(t2,[guvname,': biochemical kymographs']);
+    title(t2,[targname,': biochemical kymographs']);
     drawnow
 
 %     %% adjust font size in all figures
@@ -1564,9 +1602,9 @@ xlinec = [0.1 0.1 0.1];
     %figsout = v2struct(f13);
     figsout = f13;
     if savefigs>0 && kf>0
-    print(f13,strcat(outputfolder,guvname,'_',tstamp1,'_fig_biochemkymos_Fix'),'-dpng')
+    print(f13,strcat(outputfolder,targname,'_',tstamp1,'_fig_biochemkymos_Fix'),'-dpng')
     elseif savefigs>0 && kf==0
-    print(f13,strcat(outputfolder,guvname,'_',tstamp1,'_fig_biochemkymos_Var'),'-dpng')
+    print(f13,strcat(outputfolder,targname,'_',tstamp1,'_fig_biochemkymos_Var'),'-dpng')
     end
 
 
@@ -1579,7 +1617,7 @@ cols   = dataParams.cols;
 rows   = dataParams.rows;
 nframes = dataParams.nframes;
 listFrames = dataParams.listFrames;
-guvname = dataParams.guvname;
+targname = dataParams.targname;
 im0    = dataParams.im0;
 imL    = dataParams.imL;
 savefigs = dataParams.savefigs;
@@ -1748,7 +1786,7 @@ tfs = afs + 3; % title font size
     if do_fixedbox
         boxsize = boxt1;
     else
-        %extra padding when adjusting box for every GUV
+        %extra padding when adjusting box for every target
         minCol = max(   1,minCol-5);
         maxCol = min(cols,maxCol+5);
         minRow = max(   1,minRow-5);
@@ -1837,7 +1875,7 @@ tfs = afs + 3; % title font size
     %
     t1.Padding     = 'compact';
     t1.TileSpacing = 'compact';
-    t1.Title.String = guvname;
+    t1.Title.String = targname;
     t1.Title.FontSize = 12;
     t1.Title.FontName = 'Arial';
     t1.Title.Color = [0 0 0];
@@ -1885,7 +1923,7 @@ if do_plotBoundaryOverlay
 
 
     if ~do_fixedbox
-        %extra padding when adjusting box for every GUV
+        %extra padding when adjusting box for every target
         minCol = max(   1,minCol-5);
         maxCol = min(cols,maxCol+5);
         minRow = max(   1,minRow-5);
@@ -1893,7 +1931,7 @@ if do_plotBoundaryOverlay
         boxsize = [minCol maxCol minRow maxRow];
     end
     hold off
-    title(f4t,guvname,'FontSize',afs+14)
+    title(f4t,targname,'FontSize',afs+14)
     ax4.Parent.FontName = 'Arial';
     ax4.Parent.FontSize = afs+4;
 %     ax4.Parent.XLim = boxsize(1:2);
@@ -1911,8 +1949,8 @@ if do_plotBoundaryOverlay
     figsout(2) = f4;
 
     if savefigs>0
-    print(f3,strcat(outputfolder,guvname,'_',tstamp1,'_fig_macrosummary'),'-dpng')
-    print(f4,strcat(outputfolder,guvname,'_',tstamp1,'_fig_boundary'),'-dpng')
+    print(f3,strcat(outputfolder,targname,'_',tstamp1,'_fig_macrosummary'),'-dpng')
+    print(f4,strcat(outputfolder,targname,'_',tstamp1,'_fig_boundary'),'-dpng')
     end
 
 else
@@ -1922,7 +1960,7 @@ else
     figsout(1) = f3;
 
     if savefigs>0
-    print(f3,strcat(outputfolder,guvname,'_',tstamp1,'_fig_macrosummary'),'-dpng')
+    print(f3,strcat(outputfolder,targname,'_',tstamp1,'_fig_macrosummary'),'-dpng')
     end
 
     
@@ -1965,76 +2003,40 @@ function figout = displayboundary(I1rgb,bdy,Borigs,Bkpoints)
     figout = f1;
 end
 
-
-function figout = displaymultipanel(fignum,fvars,I1rgb,I1pan,varargin)
-% recall: f2vars = v2struct(savgolay_smooth,computecurv,movieFrame,panelnames,panelcaxes,tmpbdy);
+function figout = displaymultipanel(fignum,fvars,I1bdy,I1pan,currFrame,movieFrame)
+% recall: f2vars = v2struct(savgolay_smooth,computecurv,movieFrame,tmpbdy,minfont,membch);
 v2struct(fvars);
 dmark = 45;
 FontSize = minfont; %min(minfont,floor(min(cols,rows)/10));
-interpBdy = tmpbdy;
-npanel = 0.5*(nargin-2);
+interpBdy = I1bdy{currFrame};
+nsubpanel = length(I1pan(1).names); % # of subpanels
 
 f2= figure(fignum); clf(f2);
-tf2 = tiledlayout(2,2*npanel);
+tf2 = tiledlayout(2,2*nsubpanel);
 tf2.Padding     = 'compact';
 tf2.TileSpacing = 'compact';
 f2.Position(3:4) = [1500, 500];
 
-Irgb = cell(npanel,1);
-Ivars = cell(npanel,1);
-Icax = cell(npanel,1);
-Irgb{1} = I1rgb; % background image 
-Ivars{1} = I1pan.vars; % boundary quantities to overlay
-Icax{1} = I1pan.caxes; % color axis for boundary quantity
-if ~isempty(varargin)
-    for i = 2:npanel
-        Irgb{i} = varargin{2*(i-1)-1};
-        Ivars{i} = varargin{2*(i-1)}.caxes;
-        Icax{i} = varargin{2*(i-1)}.caxes;
-    end
-end
+Ilabels = I1pan.names; % names of boundary quantities
+Icax = I1pan.caxes; % color axis for boundary quantity
+Irgb = I1pan.images(currFrame,:); % background image for each sub-panel
+Ivals = I1pan.vals(currFrame,:); % boundary quantities to plot for each sub-panel
 
-for j = 1:npanel
+
+
+for j = 1:nsubpanel
 
     nexttile(2*j-1,[2 2])
     imshow(Irgb{j}); 
 
     hold on;
     f2ax1 = scatter3(interpBdy(:,2),interpBdy(:,1),zeros(length(interpBdy),1)...
-        ,[],interpCurv,'filled','SizeData',dmark);
-    if computecurv==1
-        title('Curvature (circum) along interpolated boundary')
-    else
-        title('Curvature (fitcircle) along interpolated boundary')
-    end
+        ,[],Ivals{j},'filled','SizeData',dmark);
+    title(Ilabels{j})
     colorbar;  colormap(parula);
-    f2ax1.Parent.CLim = curvcax; %[-0.03,0.03]; %caxis([-0.11 0.11]); 
+    f2ax1.Parent.CLim = Icax{j}; %[-0.03,0.03]; %caxis([-0.11 0.11]); 
     text(6,6,num2str(movieFrame),'Color','white','FontSize',FontSize)
     hold off
-
-    nexttile(3,[2 2]); % 5 if using flow
-    imshow(I2rgb);
-    hold on;
-    f2ax2 = scatter3(interpBdy(:,2),interpBdy(:,1),zeros(length(interpBdy),1)...
-        ,[],interpFluor,'filled','SizeData',dmark);
-    title([fluorname(9:end),' normalized intensity along interpolated boundary'])
-    colorbar; colormap(parula); 
-    f2ax2.Parent.CLim = tmpfluorcax; %[0,30];%caxis([0 41]); 
-    text(6,6,num2str(movieFrame),'Color','white','FontSize',FontSize)
-    hold off
-
-    nexttile(5,[2 2]); % 9 if using flow
-    imshow(I1rgb);
-    hold on;
-    if nargin == 7
-        interpVel = varargin{4};
-        f2ax3 = scatter3(interpBdy(:,2),interpBdy(:,1),zeros(length(interpBdy),1)...
-            ,[],interpVel,'filled','SizeData',dmark);
-    end
-    title('Velocities along interpolated boundary')
-    colorbar; colormap(parula); 
-    f2ax3.Parent.CLim = velcax; % [-5,5]; % caxis([-8.5 8.5]);
-    text(6,6,num2str(movieFrame),'Color','white','FontSize',FontSize)
 
 end
 
@@ -2043,106 +2045,11 @@ end
  
     drawnow
     % adjust position
-    f2.Position(3:4) = [1500, 500];
+    %f2.Position(3:4) = [1500, 500];
 
     figout = f2;
 
 end
-% function figout = displayrest(I1rgb,I2rgb,f2vars,varargin)
-% v2struct(f2vars);
-% dmark = 45;
-% FontSize = minfont; %min(minfont,floor(min(cols,rows)/10));
-% 
-% if nargin >= 6
-%     f2= figure(2); clf(f2);
-%     tf2 = tiledlayout(2,6);
-%     tf2.Padding     = 'compact';
-%     tf2.TileSpacing = 'compact';
-%     f2.Position(3:4) = [1500, 500];
-% 
-%     interpBdy = varargin{1};
-%     interpCurv = varargin{2}; 
-%     interpGFP = varargin{3};
-% 
-% 
-% 
-% 
-%     nexttile(1,[2 2])
-%     imshow(I1rgb); 
-%     rows = size(I1rgb,1); cols = size(I1rgb,2);
-%     hold on;
-%     f2ax1 = scatter3(interpBdy(:,2),interpBdy(:,1),zeros(length(interpBdy),1)...
-%         ,[],interpCurv,'filled','SizeData',dmark);
-%     if computecurv==1
-%         title('Curvature (circum) along interpolated boundary')
-%     else
-%         title('Curvature (fitcircle) along interpolated boundary')
-%     end
-%     colorbar;  colormap(parula);
-%     f2ax1.Parent.CLim = curvcax; %[-0.03,0.03]; %caxis([-0.11 0.11]); 
-%     text(6,6,num2str(movieFrame),'Color','white','FontSize',FontSize)
-%     hold off
-% 
-%     nexttile(3,[2 2]); % 5 if using flow
-%     imshow(I2rgb);
-%     hold on;
-%     f2ax2 = scatter3(interpBdy(:,2),interpBdy(:,1),zeros(length(interpBdy),1)...
-%         ,[],interpGFP,'filled','SizeData',dmark);
-%     title([fluorname(9:end),' normalized intensity along interpolated boundary'])
-%     colorbar; colormap(parula); 
-%     f2ax2.Parent.CLim = tmpfluorcax; %[0,30];%caxis([0 41]); 
-%     text(6,6,num2str(movieFrame),'Color','white','FontSize',FontSize)
-%     hold off
-% 
-%     nexttile(5,[2 2]); % 9 if using flow
-%     imshow(I1rgb);
-%     hold on;
-%     if nargin == 7
-%         interpVel = varargin{4};
-%         f2ax3 = scatter3(interpBdy(:,2),interpBdy(:,1),zeros(length(interpBdy),1)...
-%             ,[],interpVel,'filled','SizeData',dmark);
-%     end
-%     title('Velocities along interpolated boundary')
-%     colorbar; colormap(parula); 
-%     f2ax3.Parent.CLim = velcax; % [-5,5]; % caxis([-8.5 8.5]);
-%     text(6,6,num2str(movieFrame),'Color','white','FontSize',FontSize)
-%     hold off
-%  
-%     drawnow
-%     % adjust position
-%     f2.Position(3:4) = [1500, 500];
-% 
-%     figout = f2;
-% 
-% else
-%     f2= figure(2); clf(f2);
-%     tf2 = tiledlayout(2,2);
-%     tf2.Padding     = 'compact';
-%     tf2.TileSpacing = 'compact';
-% 
-% 
-%     interpBdy = varargin{1};
-%     interpGFP = varargin{2};
-% 
-%     nexttile(1,[2 2])
-%     imshow(I2rgb);
-%     hold on;
-%     f2ax2 = scatter3(interpBdy(:,2),interpBdy(:,1),zeros(length(interpBdy),1)...
-%         ,[],interpGFP,'filled','SizeData',dmark);
-%     title([fluorname(9:end),' normalized intensity along interpolated boundary'])
-%     colorbar; colormap(parula); 
-%     f2ax2.Parent.CLim = tmpfluorcax; %[0,30];%caxis([0 41]); 
-%     text(6,6,num2str(movieFrame),'Color','white','FontSize',FontSize)
-%     hold off
-% 
-%     drawnow
-%     % adjust position
-%     f2.Position(3:4) = [500, 500];
-% 
-%     figout = f2;
-% end
-% 
-% end
 
 
 
@@ -2411,7 +2318,7 @@ end
 end
 
 
-function newvelT = velocitytrack(bdy1,c1,bdy0,c0,dt,I1rgb,pveltrack)
+function newvelT = velocity_motiontrack(bdy1,c1,bdy0,c0,dt,I1rgb,pveltrack)
 % inputs:
 % newbdy, oldbdy: [row col], circular lists (repetition of first point at end of list)
 % newc, oldc: centroid positions [y0, x0]
@@ -2524,13 +2431,11 @@ else    % nnew = nold OR nnew > nold
 end
 
 
-if do_plotVelseries
+if do_plotVelseries_motiontrack
 
     cols = size(I1rgb,2); rows = size(I1rgb,1);
     npts = length(b2uorigC);
     idx = 1:round(npts/50):npts;
-
-
 
     % use list of boundary points that are equal and before any last step interpolation 
     bdy = b2uorigC;
@@ -2544,7 +2449,7 @@ if do_plotVelseries
     velCidx = velC(idx);
     
     f5 = figure(5);clf(f5);
-        f5.Position(3:4) = [600,600];
+        f5.Position(3:4) = [500,500];
 
     tf5 = tiledlayout(2,2); tf5.TileSpacing = 'compact'; tf5.Padding='compact';
     nexttile(1,[2,2]);
@@ -2579,22 +2484,22 @@ if do_plotVelseries
     drawnow
 
 
-    f5.Position(3:4) = [600,600];
+    %f5.Position(3:4) = [600,600];
 
     if savefigs>0 % create tiff series
         %pause(0.05)
 
         F5 = getframe(f5);
         if movieFrame == im0
-            imwrite(F5.cdata,strcat(outputfolder,guvname,'_',tstamp1,'_tseries_vel.tif'));
+            imwrite(F5.cdata,strcat(outputfolder,targname,'_',tstamp1,'_',filetag,'_tseries_vel_motiontrack.tif'));
         else
-            imwrite(F5.cdata,strcat(outputfolder,guvname,'_',tstamp1,'_tseries_vel.tif'),...
+            imwrite(F5.cdata,strcat(outputfolder,targname,'_',tstamp1,'_',filetag,'_tseries_vel_motiontrack.tif'),...
                 'WriteMode','append');
         end
     end
 
 
-end % end of do_plotVelseries
+end % end of do_plotVelseries_motiontrack
 
 end
 
@@ -2611,7 +2516,7 @@ function [I,Iorig]=readframe(fullFileName,frame)
     I = medfilt2(I,[1 1]);
 end
 
-function [svel3,idx] = getvelocities(bdy,obdy,dt,pVel,varargin) % BSA 
+function [svel3,idx] = velocity_pdist2(bdy,obdy,dt,pVel,varargin) % BSA 
 
     v2struct(pVel);
 [dist, idx]  = pdist2(obdy,bdy,'euclidean','Smallest',1);
@@ -2652,13 +2557,15 @@ svel3 = (1/dt)*dist.*inout3;
 
 %% plot displacements
 
-if do_plotVelseries
+if do_plotVelseries_pdist2
 
     I1rgb = varargin{1};
     cols = size(I1rgb,2); rows = size(I1rgb,1);
 
     f5 = figure(5);clf(f5);
-
+    tiledlayout(2,2,'TileSpacing','compact','Padding','compact');
+    f5.Position(3:4) = [500, 500];
+    nexttile(1,[2,2]);
 
     obdym = fliplr(obdy(idx,:))'; % xcoords row1, ycoords row2
     bdym = fliplr(bdy)'; % xcoords row1, ycoords row2
@@ -2688,21 +2595,21 @@ if do_plotVelseries
 
     hold off; 
     drawnow
-    f5.Position(3:4) = [600,600];
+    %f5.Position(3:4) = [600,600];
 
     if savefigs > 0 % create tiff series
         %pause(0.05)
         F5 = getframe(f5);
         if movieFrame == im0
-            imwrite(F5.cdata,strcat(outputfolder,guvname,'_',tstamp1,'_tseries_vel.tif'));
+            imwrite(F5.cdata,strcat(outputfolder,targname,'_',tstamp1,'_',filetag,'_tseries_vel_pdist2.tif'));
         else
-            imwrite(F5.cdata,strcat(outputfolder,guvname,'_',tstamp1,'_tseries_vel.tif'),...
+            imwrite(F5.cdata,strcat(outputfolder,targname,'_',tstamp1,'_',filetag,'_tseries_vel_pdist2.tif'),...
                 'WriteMode','append');
         end
    end
 
 
-end % end of do_plotVelseries
+end % end of do_plotVelseries_pdist2
 
 end
 
@@ -2728,13 +2635,15 @@ for k = 1:nchannels
     if ismember(k,fluorch)
     count = count + 1;
 
+    %% **SETUP** adjust if needed
     del   = 4;% 4 originally # of points left or right used to find perpendicular line segment 
     lperp = nsize*8;% px outer and px inner for perpendicular line segment
     pin = nsize*8; % px to erode for luminal mask
     pout1 = nsize*8;  % px to dilate for 1st outer ring of external mask
     pout2 = nsize*16; % px to dilate for 2nd outer ring of external mask 
-    ptop = [1]; % prop of top gfp intensities to use along lperp
-    % KEEP ptop = 1; USE PLPERP  to adjust how far outward to compute top gfp intensities
+    ptop = [1]; % prop of top gfp intensities to use along lperp 
+    % KEEP ptop = 1 for most targets; can adjust lower as needed; 
+    % USE PLPERP  to adjust how far outward to compute top fluorescent intensities
     npts  = length(bdy); 
     fluor   = zeros(npts,1); % for ptop1
     linner = zeros(npts,2);
@@ -2824,17 +2733,26 @@ for k = 1:nchannels
 %         fluor = (fluor-mobw)/maxfl;
 %     end
 
- %% NO LUMEN division here:
-%       fluor = (fluor-mobw)/(mibw-mobw);
-    fluor = (fluor-mobw);
+ %% Option for lumen signal division
+ 
+    if do_lumennorm
+        % OPTION 1: use LUMEN division here:
+        fluor = (fluor-mobw)/(mibw-mobw);
+    else
+        % OPTION 2: NO LUMEN DIVISION
+        fluor = (fluor-mobw);
+    end
 
-    %%
+
+
+%%
     getoBW{count} = oBW;
     getiBW{count} = iBW;
     getFluor{count} = fluor;
     getinner{count} = linner;
     getouter{count} = louter;
 
+        %% Option for membrane marker normalization
     if k > 1 && do_membnorm
         getFluor{count} = fluor./getFluor{1}; % divide by membrane channel
     end
@@ -2864,7 +2782,7 @@ function [allkymos, alignall,varargout] = makekymos(dataRaw,kf)
 % kymofixedpts = dataRaw.kymofixedpts;
 % kymofixedtheta = dataRaw.kymofixedtheta;
 
-guvname = dataRaw.guvname;
+targname = dataRaw.targname;
 bdyall       = dataRaw.allBoundaries; % cell array nframes by 1 boundary points
 bdycurv      = dataRaw.allCurvatures; % cell array nframes by 1
 bdyvel       = dataRaw.allpdist2Velocities; % cell array nframes by 1
@@ -2886,7 +2804,7 @@ savefigs     = dataRaw.savefigs;
 outputfolder = dataRaw.outputfolder;
 tstamp1    = dataRaw.tstamp1;
 
-do_plotVelseries = dataRaw.do_plotVelseries;
+do_plotVelseries_motiontrack = dataRaw.do_plotVelseries_motiontrack;
 nbins = dataRaw.nbins;
 pvary = dataRaw.pvary;
 allIrgb = dataRaw.allIrgb;
@@ -3012,21 +2930,24 @@ for j=1:nframes
 
         [newtmp,newvel,newcurv,newpd2dcumul,newfluor{:}] = alignboundary_ba(tmp-[y0 x0],oldtmp-[y0old x0old],vel,curv,pd2dcumul,fluor{:});
 %         if veltrack
-%             pveltrack=v2struct(movieFrame,do_plotVelseries,im0,savefigs,outputfolder,tstamp1,guvname,minfont);
+%             pveltrack=v2struct(movieFrame,do_plotVelseries,im0,savefigs,outputfolder,tstamp1,targname,minfont);
 %             [newvel] = velocitytrack(tmp,[y0 x0],oldtmp,[y0old x0old],dt,allIrgb{j,membch},pveltrack);        
 %         end
 
-        if kf > 0 && veltrack1 %kymofixedpts || kymofixedtheta
-            pveltrack=v2struct(movieFrame,do_plotVelseries,im0,savefigs,outputfolder,tstamp1,guvname,minfont);
-            [newvel] = velocitytrack(tmp,[y0 x0],oldtmp,[y0old x0old],dt,allIrgb{j,membch},pveltrack);        
+        if kf > 0 && veltrack1 % (kf > 0 means kymofixedpts || kymofixedtheta)
+            filetag = 'kymofixed';
+            do_plotVelseries_motiontrack = 0; % no need to plot velocity for both kymofixed and kymovarying
+            pveltrack=v2struct(filetag,movieFrame,do_plotVelseries_motiontrack,im0,savefigs,outputfolder,tstamp1,targname,minfont);
+            [newvel] = velocity_motiontrack(tmp,[y0 x0],oldtmp,[y0old x0old],dt,allIrgb{j,membch},pveltrack);        
             newdcumul = olddcumul + dt*newvel;
 
-        elseif kf > 0 && ~veltrack1 
+        elseif kf > 0 && ~veltrack1 % (kf > 0 means kymofixedpts || kymofixedtheta)
             newdcumul = olddcumul + dt*newvel;
 
         elseif kf == 0 && veltrack2  % kymo varying use pmotion tracking for vel
-            pveltrack=v2struct(movieFrame,do_plotVelseries,im0,savefigs,outputfolder,tstamp1,guvname,minfont);
-            [newvel] = velocitytrack(tmp,[y0 x0],oldtmp,[y0old x0old],dt,allIrgb{j,membch},pveltrack);        
+            filetag = 'kymovary';
+            pveltrack=v2struct(filetag,movieFrame,do_plotVelseries_motiontrack,im0,savefigs,outputfolder,tstamp1,targname,minfont);
+            [newvel] = velocity_motiontrack(tmp,[y0 x0],oldtmp,[y0old x0old],dt,allIrgb{j,membch},pveltrack);        
             % can only use pdist2 for dcumul
             newdcumul = newpd2dcumul;
 
@@ -4654,11 +4575,12 @@ if strcmp(Type,'2D'),
     plot(X(1,:),X(2,:),'c','LineWidth',2);
     hold on;
     plot(C(1),C(2),'m*','MarkerSize',10,LineWidth=3);
-    axis equal, grid
+    axis equal
+    %grid
 else
     mesh(XX,YY,ZZ);
     axis equal
-    hidden off
+    %hidden off
 end
 
 end
