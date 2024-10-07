@@ -21,7 +21,7 @@ MATLAB 2022a (or later versions) is required to run these scripts.
 
 Additional details regarding the approaches used can be found in the Supplementary Information section of the paper. Please read the citation details below if you would like to use a part of this repository in your research.
 
-The GUV TIFF and kymograph dataset containing outputs based on this code can be found on Dryad: https://doi.org/10.5061/dryad.tqjq2bw66
+The GUV TIFF and kymograph dataset containing input files and outputs based on this code can be found on Dryad: https://doi.org/10.5061/dryad.tqjq2bw66
 
 ## Authors
 The code was primarily developed by Bedri Abubaker-Sharif and Pablo A. Iglesias (Johns Hopkins University, Baltimore, MD, USA).
