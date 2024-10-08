@@ -14,6 +14,14 @@ It also contains code for analysis of radial actin polymerization rate for local
 
 Code for generating simulations of ActA and Actin in supplemental figure 15 is found in: simActA_Actin_NOmarkernormalization.m
 
+### Output files
+The following file types are found in the _G01_singlerun_output_ folder: 
+
+- ".m" files: MATLAB code used to generate the biophysical kymographs
+- ".png" and ".fig" files: image files (and corresponding MATLAB figure files) for biophysical kymographs. File names containing "Var" refer to biophysical kymographs with varying number of boundary points (to track changes in GUV size). File names containing "Fix" refer to biophysical kymographs with fixed number of boundary points. 
+- ".tif" files: time-series of inner/outer masks used to segment each GUV and compute boundary quantities. Masks are overlayed on the grayscale GUV images for different fluorescent channels, with the following color-coding: 1) green zones indicate the region outside the GUV; 2) red zones indicate the region inside the GUV; 3) the space between the dashed cyan and dashed red lines indicates the and red zones indicates the boundary region of the GUV from which biochemical quantities are computed; 4) the dashed white line indicates the boundary from which physical quantities are computed.
+- ".mat" files: saved MATLAB variables for biophysical quantities
+
 ## Requirements
 MATLAB 2022a (or later versions) is required to run these scripts. 
 
@@ -21,7 +29,7 @@ MATLAB 2022a (or later versions) is required to run these scripts.
 
 Additional details regarding the approaches used can be found in the Supplementary Information section of the paper. Please read the citation details below if you would like to use a part of this repository in your research.
 
-The GUV TIFF and kymograph dataset containing input files and outputs based on this code can be found on Dryad: https://doi.org/10.5061/dryad.tqjq2bw66
+The GUV TIFF and kymograph dataset containing all input files and outputs based on this code can be found on Dryad: https://doi.org/10.5061/dryad.tqjq2bw66
 
 ## Authors
 The code was primarily developed by Bedri Abubaker-Sharif and Pablo A. Iglesias (Johns Hopkins University, Baltimore, MD, USA).
