@@ -27,7 +27,7 @@ MATLAB 2022a (or later versions) is required to run these scripts.
 
 Code for generating simulations of ActA and Actin in supplemental figure 15 is found in "simActA_Actin_NOmarkernormalization.m". Additional details regarding the approaches used can be found in the Supplementary Information section of the paper. Please read the citation details below if you would like to use a part of this repository in your research.
 
-The GUV TIFF and kymograph dataset containing all input files and outputs based on this code can be found on Dryad: https://doi.org/10.5061/dryad.tqjq2bw66
+The GUV TIFF and kymograph dataset containing all input files and outputs based on this code can be found on Dryad: [https://doi.org/10.5061/dryad.tqjq2bw66](https://doi.org/10.5061/dryad.tqjq2bw66)
 
 ## Authors
 The code was primarily developed by Bedri Abubaker-Sharif and Pablo A. Iglesias (Johns Hopkins University, Baltimore, MD, USA).
@@ -38,10 +38,6 @@ This program is free software (please see License for details). However, if you 
 Shiva Razavi et al., Synthetic control of actin polymerization and symmetry breaking in active protocells. _Science Advances_ **10**, eadk9731 (2024). [DOI:10.1126/sciadv.adk9731](https://doi.org/10.1126/sciadv.adk9731)
 
 ## License
-Copyright © 2023 Bedri Abubaker-Sharif and Pablo A. Iglesias.
+Copyright © 2024 Bedri Abubaker-Sharif and Pablo A. Iglesias.
 
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not, see https://www.gnu.org/licenses/.
+This program is free software licensed under Creative Commons Attribution-NonCommercial 4.0 International. This license requires that reusers give credit to the creator. It allows reusers to distribute, remix, adapt, and build upon the material in any medium or format, for noncommercial purposes only. See terms here: [https://creativecommons.org/licenses/by-nc/4.0/](https://creativecommons.org/licenses/by-nc/4.0/)
