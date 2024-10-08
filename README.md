@@ -10,9 +10,7 @@ The _G01_input_ folder contains raw tiff files separated by channels from experi
 The "target_settings.csv" file contains parameters for each guv that need to be adjusted (naming, number of frames to use, time of rapamycin addition, inner-outer mask size parameter, and center angle for kymographs). Search the code file for "\*\*SETUP\*\*" which indicate sections of the code with variables can be adjusted as needed. Output for data from a single target's relevant tif files (e.g. tifs in _G01_acs_v0_ folder) is in the _G01_singlerun_output_ folder. If multiple targets are identified and segmented in separate folders (_G01_input/G01_acs_v0_, _G02_input/G02_acs_v0_ etc,), then the settings for each target can be listed in the “target_settings.csv” document and Code_2_kymographs.m can be setup to read data from a table (set the “runtype” variable to 2).  
 
 ### Code 3: Correlation analysis and principal component analysis to study symmetry breaking. 
-It also contains code for analysis of radial actin polymerization rate for locally stimulated GUVs. 
-
-Code for generating simulations of ActA and Actin in supplemental figure 15 is found in: simActA_Actin_NOmarkernormalization.m
+This script also contains code for analysis of radial actin polymerization rate for locally stimulated GUVs. 
 
 ### Output files
 The following output file types are found in the _G01_output_kymos_tseries_ folder: 
@@ -27,7 +25,7 @@ MATLAB 2022a (or later versions) is required to run these scripts.
 
 ## Additional Information
 
-Additional details regarding the approaches used can be found in the Supplementary Information section of the paper. Please read the citation details below if you would like to use a part of this repository in your research.
+Code for generating simulations of ActA and Actin in supplemental figure 15 is found in "simActA_Actin_NOmarkernormalization.m". Additional details regarding the approaches used can be found in the Supplementary Information section of the paper. Please read the citation details below if you would like to use a part of this repository in your research.
 
 The GUV TIFF and kymograph dataset containing all input files and outputs based on this code can be found on Dryad: https://doi.org/10.5061/dryad.tqjq2bw66
 
