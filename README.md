@@ -38,7 +38,7 @@ This program is free software (please see License for details). However, if you 
 Shiva Razavi et al., Synthetic control of actin polymerization and symmetry breaking in active protocells. _Science Advances_ **10**, eadk9731 (2024). [DOI:10.1126/sciadv.adk9731](https://doi.org/10.1126/sciadv.adk9731)
 
 ## License
-Copyright © 2023 Shiva Razavi, Felix Wong, Bedri Abubaker-Sharif, Hideaki T. Matsubayashi, Hideki Nakamura, Eduardo Sandoval, Douglas N. Robinson, Baoyu Chen, Jian Liu, Pablo A. Iglesias, and Takanari Inoue.
+Copyright © 2023 Bedri Abubaker-Sharif and Pablo A. Iglesias.
 
 This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 
